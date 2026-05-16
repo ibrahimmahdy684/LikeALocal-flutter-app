@@ -1,0 +1,56 @@
+name: like_a_local
+description: LikeALocal - Where the whole world feels like home
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Firebase
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.16.0
+  cloud_firestore: ^4.14.0
+  firebase_storage: ^11.6.0
+
+  # State Management (Lecture 6)
+  provider: ^6.1.1
+
+  # UI
+  cached_network_image: ^3.3.0
+  google_fonts: ^6.1.0
+
+  # Map
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.0
+
+  # Image Picker (Lecture 9)
+  image_picker: ^1.0.7
+
+  # Local Storage (Lecture 5/7)
+  shared_preferences: ^2.2.2
+
+  # Icons
+  cupertino_icons: ^1.0.6
+
+  # HTTP (Lecture 6)
+  http: ^1.2.0
+
+  # Intl for date formatting
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
