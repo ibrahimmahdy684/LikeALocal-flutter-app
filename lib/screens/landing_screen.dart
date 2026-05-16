@@ -265,7 +265,7 @@ class LandingScreen extends StatelessWidget {
             physics: NeverScrollableScrollPhysics(),
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: 2.5,
+            childAspectRatio: 2.2,
             children: cities.map((city) {
               return GestureDetector(
                 onTap: () {

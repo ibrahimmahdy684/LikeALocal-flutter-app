@@ -129,7 +129,7 @@ class _ExploreCitiesScreenState extends State<ExploreCitiesScreen> {
               sliver: SliverGrid(
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  childAspectRatio: 0.75,
+                  childAspectRatio: 0.7,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                 ),
@@ -215,7 +215,7 @@ class _ExploreCitiesScreenState extends State<ExploreCitiesScreen> {
                         color: AppColors.muted,
                       ),
                     ),
-                    SizedBox(height: 8),
+                    SizedBox(height: 4),
                     Row(
                       children: [
                         Icon(Icons.location_on,
