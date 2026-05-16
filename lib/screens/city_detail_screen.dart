@@ -514,6 +514,6 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
         ],
       ),
     ),
-    );
+    ));
   }
 }

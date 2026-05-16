@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../config/app_config.dart';
 import '../models/message.dart';
 import '../services/gemini_service.dart';
 

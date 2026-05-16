@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_colors.dart';
 import '../models/local_guide.dart';
+import '../models/message.dart';
 import '../providers/chat_provider.dart';
-import '../providers/auth_provider.dart' as app_auth;
 
 class ChatScreen extends StatefulWidget {
   final LocalGuide? guide;
@@ -70,6 +69,7 @@ class _ChatScreenBodyState extends State<ChatScreenBody> {
 
 class _ChatScreenState extends State<ChatScreen> {
   final _inputController = TextEditingController();
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -106,14 +106,12 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _inputController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<app_auth.AuthProvider>(context);
-    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
-
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(
