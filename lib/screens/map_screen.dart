@@ -16,6 +16,11 @@ import '../widgets/upgrade_pro_dialog.dart';
 import 'place_detail_screen.dart';
 
 class MapScreen extends StatefulWidget {
+  final String? cityName;
+  final double? lat;
+  final double? lng;
+  const MapScreen({Key? key, this.cityName, this.lat, this.lng}) : super(key: key);
+
   @override
   State<MapScreen> createState() => _MapScreenState();
 }

@@ -393,12 +393,12 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: Row(
+      child: IntrinsicHeight(
+        child: Row(
         children: [
           // Place image
           SizedBox(
             width: 112,
-            height: 112,
             child: CachedNetworkImage(
               imageUrl: place.image,
               fit: BoxFit.cover,

@@ -57,8 +57,20 @@ class _AuthScreenState extends State<AuthScreen> {
       );
       if (mounted) Navigator.of(context).pop();
     } catch (error) {
+      String msg = error.toString().replaceAll('Exception: ', '');
+      if (msg.contains('CONFIGURATION_NOT_FOUND') || msg.contains('internal-error')) {
+        msg = 'Firebase Auth not enabled. Go to Firebase Console > Authentication > Sign-in method > Enable Email/Password.';
+      } else if (msg.contains('email-already-in-use')) {
+        msg = 'This email is already registered. Try signing in.';
+      } else if (msg.contains('wrong-password') || msg.contains('invalid-credential')) {
+        msg = 'Invalid email or password.';
+      } else if (msg.contains('user-not-found')) {
+        msg = 'No account found. Please sign up first.';
+      } else if (msg.contains('weak-password')) {
+        msg = 'Password too weak. Use at least 6 characters.';
+      }
       setState(() {
-        _errorMessage = error.toString().replaceAll('Exception: ', '');
+        _errorMessage = msg;
       });
     }
   }

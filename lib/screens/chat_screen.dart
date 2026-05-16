@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_colors.dart';
 import '../models/local_guide.dart';
 import '../providers/chat_provider.dart';
-import '../models/message.dart';
+import '../providers/auth_provider.dart' as app_auth;
 
 class ChatScreen extends StatefulWidget {
   final LocalGuide? guide;
@@ -69,7 +70,6 @@ class _ChatScreenBodyState extends State<ChatScreenBody> {
 
 class _ChatScreenState extends State<ChatScreen> {
   final _inputController = TextEditingController();
-  final _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -99,41 +99,21 @@ class _ChatScreenState extends State<ChatScreen> {
     if (text.trim().isEmpty) return;
 
     final chatProvider = Provider.of<ChatProvider>(context, listen: false);
-    chatProvider.sendMessage(text.trim());
+    chatProvider.sendMessage(_inputController.text.trim());
     _inputController.clear();
-
-    // Scroll to bottom after a short delay
-    Future.delayed(Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent + 100,
-          duration: Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-
-    // Scroll again after AI response
-    Future.delayed(Duration(milliseconds: 1500), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent + 100,
-          duration: Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
   }
 
   @override
   void dispose() {
     _inputController.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<app_auth.AuthProvider>(context);
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(
@@ -176,15 +156,14 @@ class _ChatScreenState extends State<ChatScreen> {
               color: AppColors.primaryLight,
               shape: BoxShape.circle,
             ),
-            child:
-                Icon(Icons.smart_toy, color: AppColors.primary, size: 24),
+            child: Icon(Icons.chat, color: AppColors.primary, size: 24),
           ),
           SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Local AI Guide',
+                'Community Chat',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -192,7 +171,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
               Text(
-                'Ask me anything',
+                'Chat with locals and travelers',
                 style: TextStyle(fontSize: 12, color: AppColors.muted),
               ),
             ],
