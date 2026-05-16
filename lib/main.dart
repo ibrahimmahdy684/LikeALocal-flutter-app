@@ -6,8 +6,11 @@ import 'firebase_options.dart';
 import 'theme/app_theme.dart';
 import 'providers/auth_provider.dart';
 import 'providers/places_provider.dart';
+import 'providers/cities_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/notifications_provider.dart';
+import 'providers/city_chat_provider.dart';
+import 'services/firestore_service.dart';
 import 'screens/home_shell.dart';
 
 void main() async {
@@ -21,13 +24,14 @@ void main() async {
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    // MultiProvider wraps the app with all providers (Lecture 6 pattern)
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => PlacesProvider()),
+        ChangeNotifierProvider(create: (_) => CitiesProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => NotificationsProvider()),
+        ChangeNotifierProvider(create: (_) => CityChatProvider()),
       ],
       child: MaterialApp(
         title: 'LikeALocal',
@@ -39,7 +43,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// Handles initial Firebase auth state check before showing the app
 class AppStartup extends StatefulWidget {
   @override
   _AppStartupState createState() => _AppStartupState();
@@ -47,6 +50,7 @@ class AppStartup extends StatefulWidget {
 
 class _AppStartupState extends State<AppStartup> {
   bool _isLoading = true;
+  String? _initError;
 
   @override
   void initState() {
@@ -55,12 +59,28 @@ class _AppStartupState extends State<AppStartup> {
   }
 
   Future<void> _initialize() async {
-    // Try to auto-login if user was previously authenticated
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final places = Provider.of<PlacesProvider>(context, listen: false);
+    final cities = Provider.of<CitiesProvider>(context, listen: false);
+    final notifications =
+        Provider.of<NotificationsProvider>(context, listen: false);
+    final firestore = FirestoreService();
+
     try {
-      await Provider.of<AuthProvider>(context, listen: false).tryAutoLogin();
+      await firestore.seedInitialData();
+      await cities.fetchCities();
+      await auth.tryAutoLogin();
+      if (auth.isAuthenticated) {
+        await auth.syncUserSession(
+          placesProvider: places,
+          notificationsProvider: notifications,
+        );
+      }
     } catch (e) {
-      debugPrint('Auto login failed: $e');
+      debugPrint('App startup failed: $e');
+      _initError = e.toString();
     }
+
     if (mounted) {
       setState(() => _isLoading = false);
     }
@@ -89,6 +109,20 @@ class _AppStartupState extends State<AppStartup> {
                 strokeWidth: 2,
               ),
             ],
+          ),
+        ),
+      );
+    }
+
+    if (_initError != null) {
+      return Scaffold(
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'Could not connect to Firestore.\n\n$_initError',
+              textAlign: TextAlign.center,
+            ),
           ),
         ),
       );

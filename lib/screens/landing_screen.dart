@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
-import '../models/city.dart';
+import '../providers/cities_provider.dart';
 import 'city_detail_screen.dart';
 
 class LandingScreen extends StatelessWidget {
@@ -243,7 +244,7 @@ class LandingScreen extends StatelessWidget {
   }
 
   Widget _buildPopularCities(BuildContext context) {
-    final cities = City.sampleCities.take(4).toList();
+    final cities = context.watch<CitiesProvider>().cities.take(4).toList();
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 24),
       child: Column(

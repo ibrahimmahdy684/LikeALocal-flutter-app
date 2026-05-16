@@ -70,19 +70,22 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         cityName: 'Paris', // Default or user-selected city
         contributorId: authProvider.currentUser!.id,
         contributorName: authProvider.currentUser!.name,
-        isApproved: false, // Requires admin approval
+        isApproved: authProvider.isLocal,
       );
 
       await placesProvider.addPlace(newPlace);
-
-      // Award points for adding a place
+      await authProvider.incrementSharedPlaces();
       await authProvider.addPoints(10);
+      await placesProvider.refreshContributedPlaces(authProvider.currentUser!.id);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                'Place submitted for approval! +10 points'),
+              authProvider.isLocal
+                  ? 'Place published! +10 points'
+                  : 'Place submitted for approval! +10 points',
+            ),
             backgroundColor: AppColors.accent,
           ),
         );

@@ -5,6 +5,12 @@ import '../theme/app_colors.dart';
 import '../models/city.dart';
 import '../models/place.dart';
 import '../providers/places_provider.dart';
+import '../providers/cities_provider.dart';
+import '../widgets/save_place_button.dart';
+import '../models/local_guide.dart';
+import 'guide_chat_screen.dart';
+import 'place_detail_screen.dart';
+import 'city_chat_screen.dart';
 
 class CityDetailScreen extends StatefulWidget {
   final String cityName;
@@ -18,23 +24,47 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
 
-  // City image mapping
-  String get _cityImage {
-    final city = City.sampleCities.firstWhere(
+  String _cityImage(BuildContext context) {
+    final city = context.read<CitiesProvider>().cityByName(widget.cityName);
+    if (city != null && city.image.isNotEmpty) return city.image;
+    final fallback = City.sampleCities.firstWhere(
       (c) => c.name == widget.cityName,
       orElse: () => City.sampleCities.first,
     );
-    return city.image;
+    return fallback.image;
   }
 
-  // Local guides data
-  final List<Map<String, String>> _guides = [
-    {'name': 'Emma', 'avatar': 'https://i.pravatar.cc/150?img=1'},
-    {'name': 'Lucas', 'avatar': 'https://i.pravatar.cc/150?img=13'},
-    {'name': 'Sophie', 'avatar': 'https://i.pravatar.cc/150?img=5'},
-    {'name': 'Marco', 'avatar': 'https://i.pravatar.cc/150?img=12'},
-    {'name': 'Ava', 'avatar': 'https://i.pravatar.cc/150?img=9'},
-  ];
+  void _showCategoryFilter(BuildContext context, PlacesProvider provider) {
+    const categories = [
+      'All',
+      'Cafe',
+      'Restaurant',
+      'Market',
+      'Shop',
+      'Art & Culture',
+      'Nightlife',
+    ];
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: categories.map((cat) {
+            return ListTile(
+              title: Text(cat),
+              trailing: provider.selectedCategory == cat
+                  ? Icon(Icons.check, color: AppColors.primary)
+                  : null,
+              onTap: () {
+                provider.setCategory(cat);
+                Navigator.pop(ctx);
+              },
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -54,11 +84,27 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final guides = LocalGuide.forCity(widget.cityName);
+
     return Scaffold(
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => CityChatScreen(cityName: widget.cityName),
+            ),
+          );
+        },
+        icon: const Icon(Icons.forum, color: Colors.white),
+        label: const Text('City chat',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        backgroundColor: AppColors.primary,
+      ),
       body: Consumer<PlacesProvider>(
         builder: (context, placesProvider, child) {
           // Filter places by search query
-          List<Place> displayPlaces = placesProvider.places;
+          List<Place> displayPlaces = placesProvider.filteredPlaces;
           if (_searchQuery.isNotEmpty) {
             displayPlaces = displayPlaces.where((p) {
               return p.title
@@ -76,8 +122,8 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
                 slivers: [
                   // Hero Image
                   SliverAppBar(
-                    expandedHeight: 256,
-                    pinned: false,
+                    expandedHeight: 180,
+                    pinned: true,
                     leading: Padding(
                       padding: EdgeInsets.all(8),
                       child: Container(
@@ -104,7 +150,7 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
                         fit: StackFit.expand,
                         children: [
                           CachedNetworkImage(
-                            imageUrl: _cityImage,
+                            imageUrl: _cityImage(context),
                             fit: BoxFit.cover,
                             placeholder: (ctx, url) =>
                                 Container(color: AppColors.secondary),
@@ -160,58 +206,45 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
                     ),
                   ),
 
-                  // Search & Filter Bar
                   SliverToBoxAdapter(
-                    child: Transform.translate(
-                      offset: Offset(0, -24),
-                      child: Container(
-                        margin: EdgeInsets.symmetric(horizontal: 16),
-                        padding: EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.12),
-                              blurRadius: 24,
-                              offset: Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.search,
-                                color: AppColors.muted, size: 20),
-                            SizedBox(width: 12),
-                            Expanded(
-                              child: TextField(
-                                controller: _searchController,
-                                onChanged: (val) =>
-                                    setState(() => _searchQuery = val),
-                                decoration: InputDecoration(
-                                  hintText:
-                                      'Search places, food, experiences...',
-                                  hintStyle: TextStyle(
-                                      fontSize: 14, color: AppColors.muted),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                                style: TextStyle(fontSize: 14),
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.06),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.search, color: AppColors.muted, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextField(
+                              controller: _searchController,
+                              onChanged: (val) =>
+                                  setState(() => _searchQuery = val),
+                              decoration: const InputDecoration(
+                                hintText: 'Search places, food, experiences...',
+                                border: InputBorder.none,
+                                isDense: true,
                               ),
                             ),
-                            Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: AppColors.primary,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(Icons.tune,
-                                  color: Colors.white, size: 20),
-                            ),
-                          ],
-                        ),
+                          ),
+                          IconButton(
+                            onPressed: () =>
+                                _showCategoryFilter(context, placesProvider),
+                            icon: const Icon(Icons.tune, color: AppColors.primary),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -236,41 +269,48 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
                         padding: EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _guides.length,
+                        itemCount: guides.length,
                         itemBuilder: (context, index) {
-                          final guide = _guides[index];
-                          return Padding(
-                            padding: EdgeInsets.only(right: 16),
-                            child: Column(
-                              children: [
-                                Container(
-                                  width: 64,
-                                  height: 64,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                        color: AppColors.accent, width: 2),
-                                  ),
-                                  child: ClipOval(
-                                    child: CachedNetworkImage(
-                                      imageUrl: guide['avatar']!,
-                                      fit: BoxFit.cover,
-                                      placeholder: (ctx, url) => Container(
-                                          color: AppColors.secondary),
-                                      errorWidget: (ctx, url, err) =>
-                                          Icon(Icons.person),
+                          final guide = guides[index];
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      GuideChatScreen(guide: guide),
+                                ),
+                              );
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 16),
+                              child: Column(
+                                children: [
+                                  Container(
+                                    width: 64,
+                                    height: 64,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                          color: AppColors.accent, width: 2),
+                                    ),
+                                    child: ClipOval(
+                                      child: CachedNetworkImage(
+                                        imageUrl: guide.avatar,
+                                        fit: BoxFit.cover,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                SizedBox(height: 8),
-                                Text(
-                                  guide['name']!,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.muted,
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    guide.name,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.muted,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           );
                         },
@@ -321,26 +361,6 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
                 ],
               ),
 
-              // Floating Map Button
-              Positioned(
-                bottom: 16,
-                right: 16,
-                child: FloatingActionButton.extended(
-                  onPressed: () {
-                    // Navigate to map tab - handled by parent
-                    Navigator.pop(context);
-                  },
-                  backgroundColor: AppColors.primary,
-                  icon: Icon(Icons.map, color: Colors.white, size: 20),
-                  label: Text(
-                    'Map',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
             ],
           );
         },
@@ -349,7 +369,16 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
   }
 
   Widget _buildPlaceCard(Place place) {
-    return Container(
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PlaceDetailScreen(place: place),
+          ),
+        );
+      },
+      child: Container(
       height: 112,
       margin: EdgeInsets.fromLTRB(16, 0, 16, 16),
       decoration: BoxDecoration(
@@ -405,30 +434,36 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      // Hidden gem score badge
-                      Container(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppColors.accentLight,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.auto_awesome,
-                                size: 12, color: AppColors.accent),
-                            SizedBox(width: 4),
-                            Text(
-                              place.hiddenGemScore.toStringAsFixed(1),
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
-                              ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SavePlaceButton(placeId: place.id),
+                          SizedBox(width: 4),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.accentLight,
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                          ],
-                        ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.auto_awesome,
+                                    size: 12, color: AppColors.accent),
+                                SizedBox(width: 4),
+                                Text(
+                                  place.hiddenGemScore.toStringAsFixed(1),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -478,6 +513,7 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 }

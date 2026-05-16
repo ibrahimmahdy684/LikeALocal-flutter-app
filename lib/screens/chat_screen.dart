@@ -1,17 +1,92 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
+import '../models/local_guide.dart';
 import '../providers/chat_provider.dart';
 import '../models/message.dart';
 
 class ChatScreen extends StatefulWidget {
+  final LocalGuide? guide;
+  final bool showHeader;
+
+  const ChatScreen({super.key, this.guide, this.showHeader = true});
+
   @override
   _ChatScreenState createState() => _ChatScreenState();
+}
+
+/// Reusable chat body (messages + input) without scaffold header.
+class ChatScreenBody extends StatefulWidget {
+  const ChatScreenBody({super.key});
+
+  @override
+  State<ChatScreenBody> createState() => _ChatScreenBodyState();
+}
+
+class _ChatScreenBodyState extends State<ChatScreenBody> {
+  final _inputController = TextEditingController();
+  final _scrollController = ScrollController();
+
+  void _sendMessage(String text) {
+    if (text.trim().isEmpty) return;
+    context.read<ChatProvider>().sendMessage(text.trim());
+    _inputController.clear();
+    _scrollToEnd();
+  }
+
+  void _scrollToEnd() {
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent + 80,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _inputController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(child: _ChatMessagesList(scrollController: _scrollController)),
+        _ChatInputBar(
+          controller: _inputController,
+          onSend: _sendMessage,
+        ),
+      ],
+    );
+  }
 }
 
 class _ChatScreenState extends State<ChatScreen> {
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final chat = context.read<ChatProvider>();
+      if (widget.guide != null) {
+        chat.useGuide(
+          guideName: widget.guide!.name,
+          guideBio: widget.guide!.bio,
+          cityName: widget.guide!.cityName,
+        );
+      } else {
+        chat.useAssistant();
+      }
+    });
+  }
 
   final List<String> _suggestions = [
     'Best cafes for working',
@@ -63,40 +138,21 @@ class _ChatScreenState extends State<ChatScreen> {
       backgroundColor: AppColors.background,
       body: Column(
         children: [
-          // Header
-          _buildHeader(),
-          // Messages
+          if (widget.showHeader) _buildHeader(),
           Expanded(
-            child: Consumer<ChatProvider>(
-              builder: (context, chatProvider, child) {
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: EdgeInsets.all(16),
-                  itemCount: chatProvider.messages.length +
-                      (chatProvider.isTyping ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index == chatProvider.messages.length &&
-                        chatProvider.isTyping) {
-                      return _buildTypingIndicator();
-                    }
-                    return _buildMessageBubble(
-                        chatProvider.messages[index]);
-                  },
-                );
-              },
-            ),
-          ),
-          // Suggestions (only when 1 message)
+              child: _ChatMessagesList(scrollController: _scrollController)),
           Consumer<ChatProvider>(
             builder: (context, chatProvider, child) {
-              if (chatProvider.messages.length == 1) {
+              if (chatProvider.messages.length == 1 && widget.guide == null) {
                 return _buildSuggestions();
               }
-              return SizedBox.shrink();
+              return const SizedBox.shrink();
             },
           ),
-          // Input bar
-          _buildInputBar(),
+          _ChatInputBar(
+            controller: _inputController,
+            onSend: _sendMessage,
+          ),
         ],
       ),
     );
@@ -146,130 +202,6 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildMessageBubble(ChatMessage message) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 16),
-      child: Row(
-        mainAxisAlignment:
-            message.isAI ? MainAxisAlignment.start : MainAxisAlignment.end,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (message.isAI) ...[
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.smart_toy,
-                  color: AppColors.primary, size: 20),
-            ),
-            SizedBox(width: 12),
-          ],
-          Flexible(
-            child: Container(
-              padding: EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: message.isAI ? AppColors.surface : AppColors.primary,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: message.isAI
-                    ? [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 8,
-                          offset: Offset(0, 2),
-                        ),
-                      ]
-                    : null,
-              ),
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.75,
-              ),
-              child: Text(
-                message.text,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.5,
-                  color: message.isAI ? AppColors.foreground : Colors.white,
-                ),
-              ),
-            ),
-          ),
-          if (!message.isAI) ...[
-            SizedBox(width: 12),
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: AppColors.accentLight,
-                shape: BoxShape.circle,
-              ),
-              child:
-                  Icon(Icons.person, color: AppColors.accent, size: 20),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTypingIndicator() {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: AppColors.primaryLight,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.smart_toy,
-                color: AppColors.primary, size: 20),
-          ),
-          SizedBox(width: 12),
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildDot(0),
-                SizedBox(width: 4),
-                _buildDot(1),
-                SizedBox(width: 4),
-                _buildDot(2),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDot(int index) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.3, end: 1.0),
-      duration: Duration(milliseconds: 600),
-      builder: (context, value, child) {
-        return Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: AppColors.muted.withOpacity(value),
-            shape: BoxShape.circle,
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildSuggestions() {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -312,53 +244,143 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildInputBar() {
+}
+
+class _ChatMessagesList extends StatelessWidget {
+  final ScrollController scrollController;
+
+  const _ChatMessagesList({required this.scrollController});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<ChatProvider>(
+      builder: (context, chatProvider, child) {
+        return ListView.builder(
+          controller: scrollController,
+          padding: const EdgeInsets.all(16),
+          itemCount:
+              chatProvider.messages.length + (chatProvider.isTyping ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index == chatProvider.messages.length && chatProvider.isTyping) {
+              return _TypingIndicator();
+            }
+            return _MessageBubble(message: chatProvider.messages[index]);
+          },
+        );
+      },
+    );
+  }
+}
+
+class _MessageBubble extends StatelessWidget {
+  final ChatMessage message;
+  const _MessageBubble({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        mainAxisAlignment:
+            message.isAI ? MainAxisAlignment.start : MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (message.isAI) ...[
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.smart_toy,
+                  color: AppColors.primary, size: 20),
+            ),
+            const SizedBox(width: 12),
+          ],
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: message.isAI ? AppColors.surface : AppColors.primary,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Text(
+                message.text,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: message.isAI ? AppColors.foreground : Colors.white,
+                ),
+              ),
+            ),
+          ),
+          if (!message.isAI) const SizedBox(width: 12),
+        ],
+      ),
+    );
+  }
+}
+
+class _TypingIndicator extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          CircularProgressIndicator(strokeWidth: 2),
+          SizedBox(width: 12),
+          Text('Thinking...'),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatInputBar extends StatelessWidget {
+  final TextEditingController controller;
+  final void Function(String) onSend;
+
+  const _ChatInputBar({required this.controller, required this.onSend});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, 32),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(top: BorderSide(color: AppColors.border)),
       ),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _inputController,
-                decoration: InputDecoration(
-                  hintText: 'Ask for local recommendations...',
-                  hintStyle:
-                      TextStyle(fontSize: 14, color: AppColors.muted),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                hintText: 'Ask for local recommendations...',
+                hintStyle: TextStyle(fontSize: 14, color: AppColors.muted),
+                filled: true,
+                fillColor: AppColors.background,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
                 ),
-                style: TextStyle(fontSize: 14),
-                maxLines: 4,
-                minLines: 1,
-                onSubmitted: _sendMessage,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
+              maxLines: 4,
+              minLines: 1,
+              onSubmitted: onSend,
             ),
-            SizedBox(width: 8),
-            GestureDetector(
-              onTap: () => _sendMessage(_inputController.text),
-              child: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.send, color: Colors.white, size: 16),
-              ),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          IconButton.filled(
+            onPressed: () => onSend(controller.text),
+            icon: const Icon(Icons.send, color: Colors.white, size: 18),
+            style: IconButton.styleFrom(backgroundColor: AppColors.primary),
+          ),
+        ],
       ),
     );
   }

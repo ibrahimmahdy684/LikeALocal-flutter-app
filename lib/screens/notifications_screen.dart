@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../providers/notifications_provider.dart';
+import '../providers/auth_provider.dart';
 import '../models/notification_item.dart';
 
 class NotificationsScreen extends StatelessWidget {
@@ -18,8 +19,11 @@ class NotificationsScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () {
+              final auth =
+                  Provider.of<AuthProvider>(context, listen: false);
+              if (auth.currentUser == null) return;
               Provider.of<NotificationsProvider>(context, listen: false)
-                  .markAllAsRead();
+                  .markAllAsRead(auth.currentUser!.id);
             },
             child: Text(
               'Mark all read',

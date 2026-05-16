@@ -11,6 +11,8 @@ class AppUser {
   int sharedPlaces;
   int points;
   List<String> badges;
+  List<String> savedPlaceIds;
+  bool isPro;
 
   AppUser({
     required this.id,
@@ -23,6 +25,8 @@ class AppUser {
     this.sharedPlaces = 0,
     this.points = 0,
     this.badges = const [],
+    this.savedPlaceIds = const [],
+    this.isPro = false,
   });
 
   factory AppUser.fromMap(Map<String, dynamic> map, String id) {
@@ -40,6 +44,8 @@ class AppUser {
       sharedPlaces: map['sharedPlaces'] ?? 0,
       points: map['points'] ?? 0,
       badges: List<String>.from(map['badges'] ?? []),
+      savedPlaceIds: List<String>.from(map['savedPlaceIds'] ?? []),
+      isPro: map['isPro'] ?? false,
     );
   }
 
@@ -54,6 +60,8 @@ class AppUser {
       'sharedPlaces': sharedPlaces,
       'points': points,
       'badges': badges,
+      'savedPlaceIds': savedPlaceIds,
+      'isPro': isPro,
     };
   }
 }

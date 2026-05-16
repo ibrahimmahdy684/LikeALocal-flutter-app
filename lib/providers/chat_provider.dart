@@ -1,76 +1,124 @@
 import 'package:flutter/material.dart';
+
+import '../config/app_config.dart';
 import '../models/message.dart';
+import '../services/gemini_service.dart';
+
+enum ChatMode { assistant, guide }
 
 class ChatProvider with ChangeNotifier {
+  final GeminiService _gemini = GeminiService();
+
   List<ChatMessage> _messages = [];
   bool _isTyping = false;
+  ChatMode _mode = ChatMode.assistant;
+  String _cityName = 'Paris';
+  String? _guideName;
+  String? _guideBio;
 
   List<ChatMessage> get messages => _messages;
   bool get isTyping => _isTyping;
+  bool get isConfigured => _gemini.isConfigured;
 
   ChatProvider() {
-    // Initial AI greeting
-    _messages.add(ChatMessage(
-      text:
-          "Hi! I'm your local AI guide. Ask me anything about hidden gems, local favorites, or where to go in Paris!",
-      isAI: true,
-    ));
+    _resetAssistantGreeting();
+  }
+
+  void useAssistant({String cityName = 'Paris'}) {
+    _mode = ChatMode.assistant;
+    _cityName = cityName;
+    _guideName = null;
+    _guideBio = null;
+    _resetAssistantGreeting();
+  }
+
+  void useGuide({
+    required String guideName,
+    required String guideBio,
+    required String cityName,
+  }) {
+    _mode = ChatMode.guide;
+    _guideName = guideName;
+    _guideBio = guideBio;
+    _cityName = cityName;
+    _messages = [
+      ChatMessage(
+        text:
+            "Salut! I'm $guideName, your local in $cityName. $guideBio — what would you like to discover?",
+        isAI: true,
+      ),
+    ];
+    notifyListeners();
+  }
+
+  void _resetAssistantGreeting() {
+    _messages = [
+      ChatMessage(
+        text:
+            "Hi! I'm your LikeALocal AI guide for $_cityName. Ask about hidden gems, food, or where to go!",
+        isAI: true,
+      ),
+    ];
+    notifyListeners();
   }
 
   Future<void> sendMessage(String text) async {
-    // Add user message
-    _messages.add(ChatMessage(text: text, isAI: false));
-    notifyListeners();
+    if (text.trim().isEmpty) return;
 
-    // Simulate AI typing
+    _messages.add(ChatMessage(text: text.trim(), isAI: false));
     _isTyping = true;
     notifyListeners();
 
-    await Future.delayed(Duration(milliseconds: 1200));
-
-    // Generate AI response based on keywords
-    String response = _generateResponse(text.toLowerCase());
-    _messages.add(ChatMessage(text: response, isAI: true));
-    _isTyping = false;
-    notifyListeners();
-  }
-
-  String _generateResponse(String input) {
-    if (input.contains('cafe') ||
-        input.contains('café') ||
-        input.contains('coffee') ||
-        input.contains('work')) {
-      return "I recommend Le Petit Cafe in the 5th arrondissement! It has great WiFi, amazing croissants, and is loved by local students and freelancers. It's open from 8am-8pm and has a cozy atmosphere. Would you like more options?";
-    } else if (input.contains('hidden') ||
-        input.contains('gem') ||
-        input.contains('montmartre')) {
-      return "Montmartre has some incredible hidden gems! Check out the Secret Market on Rue des Abbesses (weekends only), and don't miss the tiny bookstore 'Old Town Books' tucked away on a side street. Both are local favorites with 9+ hidden gem scores!";
-    } else if (input.contains('restaurant') ||
-        input.contains('food') ||
-        input.contains('eat')) {
-      return "For authentic French cuisine, try Bistro Authentique - it's family-run and locals swear by their coq au vin. Another great spot is Le Petit Zinc for traditional bistro fare. Both are reasonably priced (\$\$) and accept walk-ins!";
-    } else if (input.contains('museum') ||
-        input.contains('free') ||
-        input.contains('art')) {
-      return "Great news! Many Paris museums are free on the first Sunday of each month. The Louvre, Musee d'Orsay, and Centre Pompidou all participate. For a hidden gem, try the Musee de la Vie Romantique - it's always free and barely known to tourists!";
-    } else if (input.contains('night') ||
-        input.contains('bar') ||
-        input.contains('drink')) {
-      return "For nightlife, check out Jazz Underground - live jazz every night in a cozy basement venue. If you want something more lively, Le Marais has great cocktail bars. My favorite is a tiny speakeasy on Rue des Archives - ask a local to point it out!";
-    } else if (input.contains('market') || input.contains('shop')) {
-      return "The Secret Market is a must-visit! It's only open on weekends and has the freshest produce and artisan goods. For unique souvenirs, head to Old Town Books or the artisan shops along Rue Mouffetard.";
-    } else {
-      return "That's a great question! I can help you find the best local spots, hidden gems, authentic restaurants, and unique experiences. What specifically interests you? Try asking about cafes, restaurants, hidden gems, or nightlife!";
+    try {
+      final reply = await _gemini.chat(
+        userMessage: text.trim(),
+        systemPrompt: _systemPrompt(),
+        history: _messages
+            .take(_messages.length - 1)
+            .map((m) => (
+                  role: m.isAI ? 'assistant' : 'user',
+                  text: m.text,
+                ))
+            .toList(),
+      );
+      _messages.add(ChatMessage(text: reply, isAI: true));
+    } on GeminiNotConfiguredException {
+      _messages.add(ChatMessage(
+        text:
+            'AI chat needs a Gemini API key. Run:\nflutter run --dart-define=GEMINI_API_KEY=your_key',
+        isAI: true,
+      ));
+    } catch (e) {
+      _messages.add(ChatMessage(
+        text: 'Sorry, I could not respond right now. (${e.toString()})',
+        isAI: true,
+      ));
+    } finally {
+      _isTyping = false;
+      notifyListeners();
     }
   }
 
+  String _systemPrompt() {
+    if (_mode == ChatMode.guide && _guideName != null) {
+      return '''You are $_guideName, a friendly local guide in $_cityName.
+Bio: $_guideBio
+Give short, personal recommendations like a real local. Mention specific neighborhoods when helpful.''';
+    }
+    return '''You are LikeALocal AI, a travel assistant for $_cityName.
+Help tourists find authentic hidden gems, cafes, restaurants, and experiences.
+Keep answers concise, warm, and practical (2-4 sentences unless listing options).''';
+  }
+
   void clearMessages() {
-    _messages.clear();
-    _messages.add(ChatMessage(
-      text:
-          "Hi! I'm your local AI guide. Ask me anything about hidden gems, local favorites, or where to go in Paris!",
-      isAI: true,
-    ));
-    notifyListeners();
+    if (_mode == ChatMode.guide && _guideName != null) {
+      useGuide(
+        guideName: _guideName!,
+        guideBio: _guideBio ?? '',
+        cityName: _cityName,
+      );
+    } else {
+      useAssistant(cityName: _cityName);
+    }
   }
 }

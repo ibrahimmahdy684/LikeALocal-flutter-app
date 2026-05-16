@@ -12,11 +12,11 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Firebase
-  firebase_core: ^2.24.2
-  firebase_auth: ^4.16.0
-  cloud_firestore: ^4.14.0
-  firebase_storage: ^11.6.0
+  # Firebase (3.x+ required for Dart 3.11 / web)
+  firebase_core: ^4.9.0
+  firebase_auth: ^6.5.1
+  cloud_firestore: ^6.4.1
+  firebase_storage: ^13.4.1
 
   # State Management (Lecture 6)
   provider: ^6.1.1
@@ -43,6 +43,11 @@ dependencies:
 
   # Intl for date formatting
   intl: ^0.19.0
+
+  # AI, location, maps
+  google_generative_ai: ^0.4.7
+  geolocator: ^13.0.4
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:

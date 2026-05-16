@@ -1,4 +1,5 @@
 class City {
+  String id;
   String name;
   String country;
   int placeCount;
@@ -7,6 +8,7 @@ class City {
   double longitude;
 
   City({
+    this.id = '',
     required this.name,
     required this.country,
     this.placeCount = 0,
@@ -15,7 +17,30 @@ class City {
     this.longitude = 0,
   });
 
-  // Sample cities data
+  factory City.fromMap(Map<String, dynamic> map, String id) {
+    return City(
+      id: id,
+      name: map['name'] ?? '',
+      country: map['country'] ?? '',
+      placeCount: map['placeCount'] ?? 0,
+      image: map['image'] ?? '',
+      latitude: (map['latitude'] ?? 0).toDouble(),
+      longitude: (map['longitude'] ?? 0).toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'name': name,
+      'country': country,
+      'placeCount': placeCount,
+      'image': image,
+      'latitude': latitude,
+      'longitude': longitude,
+    };
+  }
+
+  // Sample cities data (offline fallback)
   static List<City> sampleCities = [
     City(
       name: 'Paris',

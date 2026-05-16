@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Place {
   String id;
   String title;
@@ -49,10 +51,15 @@ class Place {
       contributorId: map['contributorId'] ?? '',
       contributorName: map['contributorName'] ?? '',
       isApproved: map['isApproved'] ?? false,
-      createdAt: map['createdAt'] != null
-          ? DateTime.tryParse(map['createdAt']) ?? DateTime.now()
-          : DateTime.now(),
+      createdAt: _parseDate(map['createdAt']),
     );
+  }
+
+  static DateTime _parseDate(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is Timestamp) return value.toDate();
+    if (value is DateTime) return value;
+    return DateTime.tryParse(value.toString()) ?? DateTime.now();
   }
 
   Map<String, dynamic> toMap() {

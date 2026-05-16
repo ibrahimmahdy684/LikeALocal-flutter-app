@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_colors.dart';
 import '../providers/auth_provider.dart';
 import '../providers/places_provider.dart';
+import '../providers/notifications_provider.dart';
 import '../models/user.dart';
 import 'auth_screen.dart';
 import 'add_place_screen.dart';
@@ -118,158 +119,163 @@ class ProfileScreen extends StatelessWidget {
             ),
           ],
         ),
-        body: Column(
-          children: [
-            // Profile header
-            Container(
-              color: AppColors.surface,
-              padding: EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  // Avatar
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryLight,
-                      shape: BoxShape.circle,
-                      border:
-                          Border.all(color: AppColors.primary, width: 2),
-                    ),
-                    child: user.avatar.isNotEmpty
-                        ? ClipOval(
-                            child: CachedNetworkImage(
-                              imageUrl: user.avatar,
-                              fit: BoxFit.cover,
-                            ),
-                          )
-                        : Icon(Icons.person,
-                            color: AppColors.primary, size: 40),
-                  ),
-                  SizedBox(height: 12),
-                  // Name
-                  Text(
-                    user.name,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.foreground,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  // Role badge
-                  Container(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryLight,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      _getRoleName(user.role),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  // Stats row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      _buildStat('Saved', user.savedPlaces.toString()),
-                      Container(
-                        width: 1,
-                        height: 32,
-                        color: AppColors.border,
-                      ),
-                      _buildStat('Shared', user.sharedPlaces.toString()),
-                      Container(
-                        width: 1,
-                        height: 32,
-                        color: AppColors.border,
-                      ),
-                      _buildStat('Points', user.points.toString()),
-                    ],
-                  ),
-                  SizedBox(height: 16),
-                  // Add Place button (for locals)
-                  if (authProvider.isLocal ||
-                      user.role == UserRole.tourist)
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (ctx) => AddPlaceScreen()),
-                          );
-                        },
-                        icon: Icon(Icons.add, size: 20),
-                        label: Text('Add Place'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final headerHeight = constraints.maxHeight * 0.2;
+            return Column(
+              children: [
+                SizedBox(
+                  height: headerHeight.clamp(120, 180),
+                  child: Container(
+                    width: double.infinity,
+                    color: AppColors.surface,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 28,
+                          backgroundColor: AppColors.primaryLight,
+                          child: user.avatar.isNotEmpty
+                              ? ClipOval(
+                                  child: CachedNetworkImage(
+                                    imageUrl: user.avatar,
+                                    width: 56,
+                                    height: 56,
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : Icon(Icons.person,
+                                  color: AppColors.primary, size: 28),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                user.name,
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                _getRoleName(user.role),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.muted,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  _compactStat(
+                                      'Saved', user.savedPlaces.toString()),
+                                  _compactStat('Shared',
+                                      user.sharedPlaces.toString()),
+                                  _compactStat(
+                                      'Pts', user.points.toString()),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                      ),
+                        IconButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (ctx) => AddPlaceScreen()),
+                            );
+                          },
+                          style: IconButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: const Icon(Icons.add, size: 20),
+                        ),
+                      ],
                     ),
-                ],
-              ),
-            ),
-            // Tab bar
-            Container(
-              color: AppColors.surface,
-              child: TabBar(
-                labelColor: AppColors.primary,
-                unselectedLabelColor: AppColors.muted,
-                indicatorColor: AppColors.primary,
-                tabs: [
-                  Tab(text: 'Saved'),
-                  Tab(text: 'Shared'),
-                  Tab(text: 'Badges'),
-                ],
-              ),
-            ),
-            // Tab views
-            Expanded(
-              child: TabBarView(
-                children: [
-                  _buildSavedTab(),
-                  _buildSharedTab(),
-                  _buildBadgesTab(user),
-                ],
-              ),
-            ),
-            // Sign out button
-            Container(
-              color: AppColors.surface,
-              padding: EdgeInsets.fromLTRB(24, 8, 24, 24),
-              child: SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: OutlinedButton(
-                  onPressed: () => authProvider.signOut(),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.destructive,
-                    side: BorderSide(color: AppColors.destructive),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    'Sign Out',
-                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
+                Material(
+                  color: AppColors.surface,
+                  child: TabBar(
+                    labelColor: AppColors.primary,
+                    unselectedLabelColor: AppColors.muted,
+                    indicatorColor: AppColors.primary,
+                    tabs: const [
+                      Tab(text: 'Saved'),
+                      Tab(text: 'Shared'),
+                      Tab(text: 'Badges'),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      _buildSavedTab(),
+                      _buildSharedTab(),
+                      _buildBadgesTab(user),
+                    ],
+                  ),
+                ),
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 44,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          authProvider.signOut(
+                            placesProvider: Provider.of<PlacesProvider>(
+                                context,
+                                listen: false),
+                            notificationsProvider:
+                                Provider.of<NotificationsProvider>(context,
+                                    listen: false),
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.destructive,
+                          side: const BorderSide(color: AppColors.destructive),
+                        ),
+                        child: const Text('Sign Out',
+                            style: TextStyle(fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _compactStat(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: RichText(
+        text: TextSpan(
+          style: TextStyle(fontSize: 11, color: AppColors.muted),
+          children: [
+            TextSpan(
+              text: '$value ',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: AppColors.foreground,
+                fontSize: 12,
               ),
             ),
+            TextSpan(text: label),
           ],
         ),
       ),
@@ -388,10 +394,52 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildSharedTab() {
-    return _buildEmptyState(
-      icon: Icons.location_on_outlined,
-      title: 'No shared places yet',
-      subtitle: 'Share your first place',
+    return Consumer<PlacesProvider>(
+      builder: (context, placesProvider, _) {
+        final places = placesProvider.contributedPlaces;
+        if (places.isEmpty) {
+          return _buildEmptyState(
+            icon: Icons.location_on_outlined,
+            title: 'No shared places yet',
+            subtitle: 'Add a place — it appears here after submission',
+          );
+        }
+        return ListView.builder(
+          padding: EdgeInsets.all(16),
+          itemCount: places.length,
+          itemBuilder: (context, index) {
+            final place = places[index];
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: place.image.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: place.image,
+                        width: 48,
+                        height: 48,
+                        fit: BoxFit.cover,
+                      )
+                    : Container(
+                        width: 48,
+                        height: 48,
+                        color: AppColors.secondary,
+                        child: Icon(Icons.place, color: AppColors.muted),
+                      ),
+              ),
+              title: Text(place.title),
+              subtitle: Text(
+                place.isApproved ? 'Approved' : 'Pending approval',
+              ),
+              trailing: Icon(
+                place.isApproved ? Icons.check_circle : Icons.schedule,
+                color: place.isApproved ? AppColors.accent : AppColors.muted,
+                size: 20,
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

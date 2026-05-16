@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../models/city.dart';
+import '../providers/cities_provider.dart';
 import 'city_detail_screen.dart';
 
 class ExploreCitiesScreen extends StatefulWidget {
@@ -11,19 +13,14 @@ class ExploreCitiesScreen extends StatefulWidget {
 
 class _ExploreCitiesScreenState extends State<ExploreCitiesScreen> {
   final _searchController = TextEditingController();
-  List<City> _filteredCities = City.sampleCities;
+  String _searchQuery = '';
 
-  void _filterCities(String query) {
-    setState(() {
-      if (query.isEmpty) {
-        _filteredCities = City.sampleCities;
-      } else {
-        _filteredCities = City.sampleCities.where((city) {
-          return city.name.toLowerCase().contains(query.toLowerCase()) ||
-              city.country.toLowerCase().contains(query.toLowerCase());
-        }).toList();
-      }
-    });
+  List<City> _filterCities(String query, List<City> allCities) {
+    if (query.isEmpty) return allCities;
+    return allCities.where((city) {
+      return city.name.toLowerCase().contains(query.toLowerCase()) ||
+          city.country.toLowerCase().contains(query.toLowerCase());
+    }).toList();
   }
 
   @override
@@ -34,7 +31,12 @@ class _ExploreCitiesScreenState extends State<ExploreCitiesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return Consumer<CitiesProvider>(
+      builder: (context, citiesProvider, _) {
+        final displayCities =
+            _filterCities(_searchQuery, citiesProvider.cities);
+
+        return Scaffold(
       backgroundColor: AppColors.background,
       body: CustomScrollView(
         slivers: [
@@ -65,7 +67,7 @@ class _ExploreCitiesScreenState extends State<ExploreCitiesScreen> {
                   ),
                   child: TextField(
                     controller: _searchController,
-                    onChanged: _filterCities,
+                    onChanged: (q) => setState(() => _searchQuery = q),
                     decoration: InputDecoration(
                       hintText: 'Search cities...',
                       hintStyle: TextStyle(
@@ -80,7 +82,7 @@ class _ExploreCitiesScreenState extends State<ExploreCitiesScreen> {
                                   color: AppColors.muted, size: 16),
                               onPressed: () {
                                 _searchController.clear();
-                                _filterCities('');
+                                setState(() => _searchQuery = '');
                               },
                             )
                           : null,
@@ -95,7 +97,7 @@ class _ExploreCitiesScreenState extends State<ExploreCitiesScreen> {
           ),
 
           // City Grid or Empty State
-          if (_filteredCities.isEmpty)
+          if (displayCities.isEmpty)
             SliverFillRemaining(
               child: Center(
                 child: Column(
@@ -133,13 +135,15 @@ class _ExploreCitiesScreenState extends State<ExploreCitiesScreen> {
                 ),
                 delegate: SliverChildBuilderDelegate(
                   (context, index) =>
-                      _buildCityCard(_filteredCities[index]),
-                  childCount: _filteredCities.length,
+                      _buildCityCard(displayCities[index]),
+                  childCount: displayCities.length,
                 ),
               ),
             ),
         ],
       ),
+    );
+      },
     );
   }
 

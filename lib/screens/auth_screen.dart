@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/places_provider.dart';
+import '../providers/notifications_provider.dart';
 import '../models/user.dart';
 import '../theme/app_colors.dart';
 
@@ -30,17 +32,18 @@ class _AuthScreenState extends State<AuthScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final placesProvider = Provider.of<PlacesProvider>(context, listen: false);
+    final notificationsProvider =
+        Provider.of<NotificationsProvider>(context, listen: false);
     setState(() => _errorMessage = null);
 
     try {
       if (_authMode == 0) {
-        // Login
         await authProvider.signIn(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
       } else {
-        // Sign up
         await authProvider.signUp(
           name: _nameController.text.trim(),
           email: _emailController.text.trim(),
@@ -48,6 +51,10 @@ class _AuthScreenState extends State<AuthScreen> {
           role: _selectedRole,
         );
       }
+      await authProvider.syncUserSession(
+        placesProvider: placesProvider,
+        notificationsProvider: notificationsProvider,
+      );
       if (mounted) Navigator.of(context).pop();
     } catch (error) {
       setState(() {
