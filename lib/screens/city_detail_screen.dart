@@ -379,7 +379,6 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
         );
       },
       child: Container(
-      height: 112,
       margin: EdgeInsets.fromLTRB(16, 0, 16, 16),
       decoration: BoxDecoration(
         color: AppColors.surface,

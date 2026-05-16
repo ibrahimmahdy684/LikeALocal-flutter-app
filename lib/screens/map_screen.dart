@@ -41,12 +41,29 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _initLocation() async {
     final places = context.read<PlacesProvider>();
+
+    // If opened from a city page with explicit coordinates, use those
+    if (widget.lat != null && widget.lng != null) {
+      final cityCenter = LatLng(widget.lat!, widget.lng!);
+      await places.fetchNearbyPlaces(cityCenter, cityName: widget.cityName);
+      if (mounted) {
+        _mapController.move(cityCenter, 14);
+        setState(() {
+          _locating = false;
+          _locationError = null;
+        });
+      }
+      return;
+    }
+
+    // Otherwise try to get the user's device location
     final position = await _locationService.getCurrentPosition();
 
     if (!mounted) return;
 
     if (position != null) {
-      await places.fetchNearbyPlaces(position, cityName: 'Paris');
+      // Fetch ALL approved places (not just Paris) and sort by distance
+      await places.fetchNearbyPlaces(position);
       _mapController.move(position, 14);
       setState(() {
         _locating = false;

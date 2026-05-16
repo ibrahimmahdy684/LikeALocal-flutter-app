@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
@@ -19,6 +22,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
   String _selectedCategory = 'Cafe';
   int _priceRange = 1;
   XFile? _pickedImage;
+  Uint8List? _pickedImageBytes;
   bool _isSubmitting = false;
 
   final List<String> _categories = [
@@ -36,7 +40,11 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
     final picker = ImagePicker();
     final image = await picker.pickImage(source: ImageSource.gallery);
     if (image != null) {
-      setState(() => _pickedImage = image);
+      final bytes = await image.readAsBytes();
+      setState(() {
+        _pickedImage = image;
+        _pickedImageBytes = bytes;
+      });
     }
   }
 
@@ -197,11 +205,11 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                       style: BorderStyle.solid,
                     ),
                   ),
-                  child: _pickedImage != null
+                  child: _pickedImageBytes != null
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                          child: Image.asset(
-                            _pickedImage!.path,
+                          child: Image.memory(
+                            _pickedImageBytes!,
                             fit: BoxFit.cover,
                             width: double.infinity,
                             errorBuilder: (ctx, err, stack) => _buildUploadPlaceholder(),
