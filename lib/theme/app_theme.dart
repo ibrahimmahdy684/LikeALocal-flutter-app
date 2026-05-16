@@ -8,13 +8,15 @@ class AppTheme {
       useMaterial3: true,
       primaryColor: AppColors.primary,
       scaffoldBackgroundColor: AppColors.background,
-      colorScheme: ColorScheme.light(
+      colorScheme: ColorScheme(
+        brightness: Brightness.light,
         primary: AppColors.primary,
-        secondary: AppColors.accent,
-        surface: AppColors.surface,
-        error: AppColors.destructive,
         onPrimary: Colors.white,
+        secondary: AppColors.accent,
         onSecondary: AppColors.foreground,
+        error: AppColors.destructive,
+        onError: Colors.white,
+        surface: AppColors.surface,
         onSurface: AppColors.foreground,
       ),
       textTheme: GoogleFonts.interTextTheme(
