@@ -8,6 +8,11 @@ import '../models/place.dart';
 import '../providers/places_provider.dart';
 
 class MapScreen extends StatefulWidget {
+  final String? cityName;
+  final double? lat;
+  final double? lng;
+  const MapScreen({Key? key, this.cityName, this.lat, this.lng}) : super(key: key);
+
   @override
   _MapScreenState createState() => _MapScreenState();
 }
@@ -15,6 +20,11 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   final MapController _mapController = MapController();
   Place? _selectedPlace;
+  String _filterCategory = 'All';
+
+  final List<String> _categories = [
+    'All', 'Cafe', 'Restaurant', 'Market', 'Museum', 'Bar', 'Park'
+  ];
 
   @override
   void initState() {
@@ -33,7 +43,10 @@ class _MapScreenState extends State<MapScreen> {
     return Scaffold(
       body: Consumer<PlacesProvider>(
         builder: (context, placesProvider, child) {
-          final places = placesProvider.getAllPlaces();
+          final allPlaces = placesProvider.getAllPlaces();
+          final places = _filterCategory == 'All'
+              ? allPlaces
+              : allPlaces.where((p) => p.category == _filterCategory).toList();
 
           return Stack(
             children: [
@@ -41,7 +54,7 @@ class _MapScreenState extends State<MapScreen> {
               FlutterMap(
                 mapController: _mapController,
                 options: MapOptions(
-                  initialCenter: LatLng(48.8566, 2.3522),
+                  initialCenter: LatLng(widget.lat ?? 48.8566, widget.lng ?? 2.3522),
                   initialZoom: 13,
                   onTap: (tapPosition, latlng) {
                     setState(() => _selectedPlace = null);
@@ -105,36 +118,62 @@ class _MapScreenState extends State<MapScreen> {
                   padding: EdgeInsets.all(16),
                   child: Row(
                     children: [
+                      // Back button (only when pushed from city detail)
+                      if (widget.cityName != null) ...[
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 12,
+                                  offset: Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Icon(Icons.arrow_back, color: AppColors.primary, size: 20),
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                      ],
                       // Filters button
                       Expanded(
-                        child: Container(
-                          height: 48,
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.1),
-                                blurRadius: 12,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.tune,
-                                  color: AppColors.primary, size: 20),
-                              SizedBox(width: 8),
-                              Text(
-                                'Filters',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.foreground,
+                        child: GestureDetector(
+                          onTap: () => _showFilterSheet(context),
+                          child: Container(
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 12,
+                                  offset: Offset(0, 4),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.tune,
+                                    color: AppColors.primary, size: 20),
+                                SizedBox(width: 8),
+                                Text(
+                                  _filterCategory == 'All' ? 'Filters' : _filterCategory,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.foreground,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -228,6 +267,60 @@ class _MapScreenState extends State<MapScreen> {
           );
         },
       ),
+    );
+  }
+
+  void _showFilterSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Container(
+          padding: EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Filter by Category',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _categories.map((cat) {
+                  bool isSelected = _filterCategory == cat;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() => _filterCategory = cat);
+                      Navigator.pop(ctx);
+                    },
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppColors.primary : AppColors.surface,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isSelected ? AppColors.primary : AppColors.border,
+                        ),
+                      ),
+                      child: Text(
+                        cat,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : AppColors.foreground,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
     );
   }
 

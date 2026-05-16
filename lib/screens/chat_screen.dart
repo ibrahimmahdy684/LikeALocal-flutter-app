@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/app_colors.dart';
 import '../providers/chat_provider.dart';
-import '../models/message.dart';
+import '../providers/auth_provider.dart' as app_auth;
 
 class ChatScreen extends StatefulWidget {
   @override
@@ -11,92 +12,102 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final _inputController = TextEditingController();
-  final _scrollController = ScrollController();
 
-  final List<String> _suggestions = [
-    'Best cafes for working',
-    'Hidden gems in Montmartre',
-    'Authentic French restaurants',
-    'Free museums on Sundays',
-  ];
-
-  void _sendMessage(String text) {
-    if (text.trim().isEmpty) return;
+  void _sendMessage() {
+    if (_inputController.text.trim().isEmpty) return;
 
     final chatProvider = Provider.of<ChatProvider>(context, listen: false);
-    chatProvider.sendMessage(text.trim());
+    chatProvider.sendMessage(_inputController.text.trim());
     _inputController.clear();
-
-    // Scroll to bottom after a short delay
-    Future.delayed(Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent + 100,
-          duration: Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-
-    // Scroll again after AI response
-    Future.delayed(Duration(milliseconds: 1500), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent + 100,
-          duration: Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
   }
 
   @override
   void dispose() {
     _inputController.dispose();
-    _scrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<app_auth.AuthProvider>(context);
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(
         children: [
           // Header
           _buildHeader(),
-          // Messages
+          // Messages using StreamBuilder (Lecture 8)
           Expanded(
-            child: Consumer<ChatProvider>(
-              builder: (context, chatProvider, child) {
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: EdgeInsets.all(16),
-                  itemCount: chatProvider.messages.length +
-                      (chatProvider.isTyping ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (index == chatProvider.messages.length &&
-                        chatProvider.isTyping) {
-                      return _buildTypingIndicator();
-                    }
-                    return _buildMessageBubble(
-                        chatProvider.messages[index]);
-                  },
-                );
-              },
-            ),
-          ),
-          // Suggestions (only when 1 message)
-          Consumer<ChatProvider>(
-            builder: (context, chatProvider, child) {
-              if (chatProvider.messages.length == 1) {
-                return _buildSuggestions();
-              }
-              return SizedBox.shrink();
-            },
+            child: !authProvider.isAuthenticated
+                ? _buildLoginPrompt()
+                : StreamBuilder<QuerySnapshot>(
+                    stream: chatProvider.getChatStream(),
+                    builder: (ctx, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Center(child: CircularProgressIndicator());
+                      }
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.chat_bubble_outline,
+                                  size: 64, color: AppColors.muted),
+                              SizedBox(height: 16),
+                              Text('No messages yet',
+                                  style: TextStyle(
+                                      fontSize: 16, color: AppColors.muted)),
+                              SizedBox(height: 8),
+                              Text('Start the conversation!',
+                                  style: TextStyle(
+                                      fontSize: 14, color: AppColors.muted)),
+                            ],
+                          ),
+                        );
+                      }
+
+                      final docs = snapshot.data!.docs;
+                      return ListView.builder(
+                        reverse: true,
+                        padding: EdgeInsets.all(16),
+                        itemCount: docs.length,
+                        itemBuilder: (context, index) {
+                          final data =
+                              docs[index].data() as Map<String, dynamic>;
+                          final isMe =
+                              data['userId'] == chatProvider.currentUserId;
+                          return _buildMessageBubble(
+                            text: data['text'] ?? '',
+                            username: data['username'] ?? 'User',
+                            isMe: isMe,
+                            timestamp: data['timeCreated'] as Timestamp?,
+                          );
+                        },
+                      );
+                    },
+                  ),
           ),
           // Input bar
-          _buildInputBar(),
+          if (authProvider.isAuthenticated) _buildInputBar(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoginPrompt() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.lock_outline, size: 64, color: AppColors.muted),
+          SizedBox(height: 16),
+          Text('Sign in to chat',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          SizedBox(height: 8),
+          Text('Join the community and share local tips!',
+              style: TextStyle(fontSize: 14, color: AppColors.muted)),
         ],
       ),
     );
@@ -120,15 +131,14 @@ class _ChatScreenState extends State<ChatScreen> {
               color: AppColors.primaryLight,
               shape: BoxShape.circle,
             ),
-            child:
-                Icon(Icons.smart_toy, color: AppColors.primary, size: 24),
+            child: Icon(Icons.chat, color: AppColors.primary, size: 24),
           ),
           SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Local AI Guide',
+                'Community Chat',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
@@ -136,7 +146,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
               Text(
-                'Ask me anything',
+                'Chat with locals and travelers',
                 style: TextStyle(fontSize: 12, color: AppColors.muted),
               ),
             ],
@@ -146,34 +156,40 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildMessageBubble(ChatMessage message) {
+  Widget _buildMessageBubble({
+    required String text,
+    required String username,
+    required bool isMe,
+    Timestamp? timestamp,
+  }) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.only(bottom: 12),
       child: Row(
         mainAxisAlignment:
-            message.isAI ? MainAxisAlignment.start : MainAxisAlignment.end,
+            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (message.isAI) ...[
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: AppColors.primaryLight,
-                shape: BoxShape.circle,
+          if (!isMe) ...[
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: AppColors.primaryLight,
+              child: Text(
+                username.isNotEmpty ? username[0].toUpperCase() : '?',
+                style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14),
               ),
-              child: Icon(Icons.smart_toy,
-                  color: AppColors.primary, size: 20),
             ),
-            SizedBox(width: 12),
+            SizedBox(width: 8),
           ],
           Flexible(
             child: Container(
-              padding: EdgeInsets.all(16),
+              padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: message.isAI ? AppColors.surface : AppColors.primary,
+                color: isMe ? AppColors.primary : AppColors.surface,
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: message.isAI
+                boxShadow: !isMe
                     ? [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.05),
@@ -184,29 +200,41 @@ class _ChatScreenState extends State<ChatScreen> {
                     : null,
               ),
               constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.75,
+                maxWidth: MediaQuery.of(context).size.width * 0.7,
               ),
-              child: Text(
-                message.text,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.5,
-                  color: message.isAI ? AppColors.foreground : Colors.white,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!isMe)
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        username,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  Text(
+                    text,
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.4,
+                      color: isMe ? Colors.white : AppColors.foreground,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          if (!message.isAI) ...[
-            SizedBox(width: 12),
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: AppColors.accentLight,
-                shape: BoxShape.circle,
-              ),
-              child:
-                  Icon(Icons.person, color: AppColors.accent, size: 20),
+          if (isMe) ...[
+            SizedBox(width: 8),
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: AppColors.accentLight,
+              child: Icon(Icons.person, color: AppColors.accent, size: 18),
             ),
           ],
         ],
@@ -214,107 +242,9 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildTypingIndicator() {
-    return Padding(
-      padding: EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: AppColors.primaryLight,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.smart_toy,
-                color: AppColors.primary, size: 20),
-          ),
-          SizedBox(width: 12),
-          Container(
-            padding: EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildDot(0),
-                SizedBox(width: 4),
-                _buildDot(1),
-                SizedBox(width: 4),
-                _buildDot(2),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDot(int index) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.3, end: 1.0),
-      duration: Duration(milliseconds: 600),
-      builder: (context, value, child) {
-        return Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: AppColors.muted.withOpacity(value),
-            shape: BoxShape.circle,
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildSuggestions() {
-    return Container(
-      padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
-      color: AppColors.background,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Suggestions:',
-            style: TextStyle(fontSize: 12, color: AppColors.muted),
-          ),
-          SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _suggestions.map((suggestion) {
-              return GestureDetector(
-                onTap: () => _sendMessage(suggestion),
-                child: Container(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Text(
-                    suggestion,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.foreground,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildInputBar() {
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, 32),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 32),
       decoration: BoxDecoration(
         color: AppColors.surface,
         border: Border(top: BorderSide(color: AppColors.border)),
@@ -331,9 +261,8 @@ class _ChatScreenState extends State<ChatScreen> {
               child: TextField(
                 controller: _inputController,
                 decoration: InputDecoration(
-                  hintText: 'Ask for local recommendations...',
-                  hintStyle:
-                      TextStyle(fontSize: 14, color: AppColors.muted),
+                  hintText: 'Type a message...',
+                  hintStyle: TextStyle(fontSize: 14, color: AppColors.muted),
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: EdgeInsets.zero,
@@ -341,20 +270,20 @@ class _ChatScreenState extends State<ChatScreen> {
                 style: TextStyle(fontSize: 14),
                 maxLines: 4,
                 minLines: 1,
-                onSubmitted: _sendMessage,
+                onSubmitted: (_) => _sendMessage(),
               ),
             ),
             SizedBox(width: 8),
             GestureDetector(
-              onTap: () => _sendMessage(_inputController.text),
+              onTap: _sendMessage,
               child: Container(
-                width: 32,
-                height: 32,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: AppColors.primary,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.send, color: Colors.white, size: 16),
+                child: Icon(Icons.send, color: Colors.white, size: 18),
               ),
             ),
           ],

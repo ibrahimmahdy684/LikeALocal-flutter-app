@@ -5,6 +5,7 @@ import '../theme/app_colors.dart';
 import '../models/city.dart';
 import '../models/place.dart';
 import '../providers/places_provider.dart';
+import 'map_screen.dart';
 
 class CityDetailScreen extends StatefulWidget {
   final String cityName;
@@ -162,8 +163,8 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
 
                   // Search & Filter Bar
                   SliverToBoxAdapter(
-                    child: Transform.translate(
-                      offset: Offset(0, -24),
+                    child: Container(
+                      margin: EdgeInsets.only(top: 16),
                       child: Container(
                         margin: EdgeInsets.symmetric(horizontal: 16),
                         padding: EdgeInsets.all(12),
@@ -239,7 +240,37 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
                         itemCount: _guides.length,
                         itemBuilder: (context, index) {
                           final guide = _guides[index];
-                          return Padding(
+                          return GestureDetector(
+                            onTap: () {
+                              showModalBottomSheet(
+                                context: context,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                                ),
+                                builder: (ctx) => Container(
+                                  padding: EdgeInsets.all(24),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      ClipOval(
+                                        child: CachedNetworkImage(
+                                          imageUrl: guide['avatar']!,
+                                          width: 80, height: 80, fit: BoxFit.cover,
+                                        ),
+                                      ),
+                                      SizedBox(height: 12),
+                                      Text(guide['name']!, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+                                      SizedBox(height: 4),
+                                      Text('Local Guide in ${widget.cityName}', style: TextStyle(color: AppColors.muted)),
+                                      SizedBox(height: 16),
+                                      Text('Passionate about sharing hidden gems and authentic experiences with travelers.', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, height: 1.5)),
+                                      SizedBox(height: 16),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Padding(
                             padding: EdgeInsets.only(right: 16),
                             child: Column(
                               children: [
@@ -272,6 +303,7 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
                                 ),
                               ],
                             ),
+                          ),
                           );
                         },
                       ),
@@ -327,8 +359,20 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
                 right: 16,
                 child: FloatingActionButton.extended(
                   onPressed: () {
-                    // Navigate to map tab - handled by parent
-                    Navigator.pop(context);
+                    final city = City.sampleCities.firstWhere(
+                      (c) => c.name == widget.cityName,
+                      orElse: () => City.sampleCities.first,
+                    );
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MapScreen(
+                          cityName: widget.cityName,
+                          lat: city.latitude,
+                          lng: city.longitude,
+                        ),
+                      ),
+                    );
                   },
                   backgroundColor: AppColors.primary,
                   icon: Icon(Icons.map, color: Colors.white, size: 20),
@@ -350,7 +394,6 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
 
   Widget _buildPlaceCard(Place place) {
     return Container(
-      height: 112,
       margin: EdgeInsets.fromLTRB(16, 0, 16, 16),
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -364,12 +407,12 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: Row(
+      child: IntrinsicHeight(
+        child: Row(
         children: [
           // Place image
           SizedBox(
             width: 112,
-            height: 112,
             child: CachedNetworkImage(
               imageUrl: place.image,
               fit: BoxFit.cover,
@@ -477,6 +520,7 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
