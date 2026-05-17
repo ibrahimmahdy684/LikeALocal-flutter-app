@@ -99,13 +99,23 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
       return;
     }
 
+    final reviewProvider = context.read<ReviewProvider>();
+    final existingReview = await reviewProvider.getUserReview(
+      widget.place.id,
+      auth.currentUser!.id,
+    );
+
+    if (existingReview != null) {
+      _editReview(existingReview);
+      return;
+    }
+
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (_) => ReviewFormDialog(placeId: widget.place.id),
     );
     if (result == null) return;
 
-    final reviewProvider = context.read<ReviewProvider>();
     await reviewProvider.addReview(
       placeId: widget.place.id,
       userId: auth.currentUser!.id,

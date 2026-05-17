@@ -1,9 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/local_guide.dart';
+import '../models/user.dart';
 import '../providers/auth_provider.dart';
 import '../services/firestore_service.dart';
 import '../theme/app_colors.dart';
@@ -48,6 +48,25 @@ class _GuideChatScreenState extends State<GuideChatScreen> {
       return;
     }
 
+    if (auth.currentUser!.chatPrivacy == ChatPrivacy.nobody) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Chat is disabled in your privacy settings.')),
+        );
+      }
+      return;
+    }
+
+    final recipientPrivacy = await _firestore.getChatPrivacy(widget.guide.id);
+    if (recipientPrivacy == ChatPrivacy.nobody) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('This user has disabled messages.')),
+        );
+      }
+      return;
+    }
+
     _inputController.clear();
     await _firestore.sendGuideChatMessage(
       userId: auth.currentUser!.id,
@@ -56,10 +75,7 @@ class _GuideChatScreenState extends State<GuideChatScreen> {
       text: text,
     );
 
-    // Notify the recipient (guide or user) about the new message
-    final recipientId = auth.currentUser!.id == widget.guide.id
-        ? auth.currentUser!.id // This shouldn't happen but safety check
-        : widget.guide.id;
+    final recipientId = widget.guide.id;
     await _firestore.createMessageNotification(
       recipientId: recipientId,
       senderName: auth.currentUser!.name,

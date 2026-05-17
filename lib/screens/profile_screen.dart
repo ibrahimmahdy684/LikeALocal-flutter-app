@@ -151,13 +151,26 @@ class ProfileScreen extends StatelessWidget {
                 const PopupMenuItem(value: 'reminders', child: Text('Reminders')),
               ],
             ),
-            IconButton(
-              icon: Icon(Icons.notifications_outlined),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (ctx) => NotificationsScreen()),
+            Consumer<NotificationsProvider>(
+              builder: (context, notifs, _) {
+                final unread = notifs.unreadCount;
+                return IconButton(
+                  icon: unread > 0
+                      ? Badge(
+                          label: Text(
+                            unread > 9 ? '9+' : unread.toString(),
+                            style: const TextStyle(fontSize: 10, color: Colors.white),
+                          ),
+                          child: const Icon(Icons.notifications_outlined),
+                        )
+                      : const Icon(Icons.notifications_outlined),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (ctx) => NotificationsScreen()),
+                    );
+                  },
                 );
               },
             ),

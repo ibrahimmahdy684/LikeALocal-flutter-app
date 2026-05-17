@@ -70,29 +70,6 @@ class _ChatPrivacyScreenState extends State<ChatPrivacyScreen> {
                 user.chatPrivacy,
               ),
               const SizedBox(height: 24),
-              _sectionHeader('Blocked Users'),
-              const SizedBox(height: 8),
-              if (user.blockedUserIds.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'No blocked users',
-                    style: TextStyle(color: AppColors.muted),
-                  ),
-                )
-              else
-                ...user.blockedUserIds.map((id) => ListTile(
-                      title: Text(id),
-                      trailing: TextButton(
-                        onPressed: () => auth.unblockUser(id),
-                        child: const Text('Unblock'),
-                      ),
-                    )),
-              const SizedBox(height: 24),
               _sectionHeader('Nearby Notifications'),
               const SizedBox(height: 8),
               Container(
