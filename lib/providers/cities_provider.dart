@@ -10,10 +10,9 @@ class CitiesProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
-  List<City> get cities => _cities.isEmpty ? City.sampleCities : _cities;
+  List<City> get cities => _cities;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  bool get usingFallback => _cities.isEmpty;
 
   Future<void> fetchCities() async {
     _isLoading = true;
@@ -21,8 +20,7 @@ class CitiesProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await _firestore.fetchCities();
-      _cities = result.isEmpty ? City.sampleCities : result;
+      _cities = await _firestore.fetchCities();
     } catch (e) {
       debugPrint('CitiesProvider fetchCities: $e');
       _error = e.toString();
@@ -35,9 +33,29 @@ class CitiesProvider with ChangeNotifier {
 
   City? cityByName(String name) {
     try {
-      return cities.firstWhere((c) => c.name == name);
+      return _cities.firstWhere((c) => c.name == name);
     } catch (_) {
       return null;
+    }
+  }
+
+  Future<void> saveCity(City city) async {
+    await _firestore.setCity(city);
+    final index = _cities.indexWhere((c) => c.name == city.name);
+    if (index == -1) {
+      _cities = [..._cities, city];
+    } else {
+      _cities[index] = city;
+    }
+    notifyListeners();
+  }
+
+  Future<void> incrementCityPlaceCount(String cityName) async {
+    await _firestore.incrementCityPlaceCount(cityName);
+    final index = _cities.indexWhere((c) => c.name == cityName);
+    if (index != -1) {
+      _cities[index].placeCount += 1;
+      notifyListeners();
     }
   }
 }

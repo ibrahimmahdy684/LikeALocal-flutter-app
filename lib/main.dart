@@ -10,7 +10,6 @@ import 'providers/cities_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/notifications_provider.dart';
 import 'providers/city_chat_provider.dart';
-import 'services/firestore_service.dart';
 import 'screens/home_shell.dart';
 
 void main() async {
@@ -22,6 +21,8 @@ void main() async {
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
@@ -44,8 +45,10 @@ class MyApp extends StatelessWidget {
 }
 
 class AppStartup extends StatefulWidget {
+  const AppStartup({super.key});
+
   @override
-  _AppStartupState createState() => _AppStartupState();
+  State<AppStartup> createState() => _AppStartupState();
 }
 
 class _AppStartupState extends State<AppStartup> {
@@ -64,10 +67,8 @@ class _AppStartupState extends State<AppStartup> {
     final cities = Provider.of<CitiesProvider>(context, listen: false);
     final notifications =
         Provider.of<NotificationsProvider>(context, listen: false);
-    final firestore = FirestoreService();
 
     try {
-      await firestore.seedInitialData();
       await cities.fetchCities();
       await auth.tryAutoLogin();
       if (auth.isAuthenticated) {

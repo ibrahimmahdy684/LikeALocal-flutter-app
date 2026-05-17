@@ -1,11 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 
 import '../core/firestore_collections.dart';
 import '../models/city.dart';
+import '../models/local_guide.dart';
 import '../models/notification_item.dart';
 import '../models/place.dart';
 import '../models/place_comment.dart';
+import '../models/user.dart';
 
 class FirestoreService {
   FirestoreService({FirebaseFirestore? firestore})
@@ -50,9 +51,68 @@ class FirestoreService {
         .toList();
   }
 
+  Future<City?> fetchCityByName(String cityName) async {
+    final doc = await _cities.doc(_cityDocId(cityName)).get();
+    if (!doc.exists) return null;
+    return City.fromMap(doc.data() ?? const <String, dynamic>{}, doc.id);
+  }
+
   Future<void> setCity(City city) async {
     final docId = _cityDocId(city.name);
     await _cities.doc(docId).set(city.toMap(), SetOptions(merge: true));
+  }
+
+  Future<void> incrementCityPlaceCount(String cityName) async {
+    final docRef = _cities.doc(_cityDocId(cityName));
+    final doc = await docRef.get();
+    if (!doc.exists) return;
+
+    await docRef.update({
+      'placeCount': FieldValue.increment(1),
+    });
+  }
+
+  Future<List<LocalGuide>> fetchLocalGuidesForCity(String cityName) async {
+    final snapshot = await _places
+        .where('cityName', isEqualTo: cityName)
+        .where('isApproved', isEqualTo: true)
+        .get();
+
+    final contributorIds = snapshot.docs
+        .map((doc) => doc.data()['contributorId'] as String? ?? '')
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+
+    if (contributorIds.isEmpty) return [];
+
+    final userDocs = await Future.wait(
+      contributorIds.map((id) => _users.doc(id).get()),
+    );
+
+    final guides = <LocalGuide>[];
+    for (final doc in userDocs) {
+      if (!doc.exists || doc.data() == null) continue;
+
+      final user = AppUser.fromMap(doc.data()!, doc.id);
+      if (user.role != UserRole.local &&
+          user.role != UserRole.admin &&
+          user.role != UserRole.superUser) {
+        continue;
+      }
+
+      guides.add(
+        LocalGuide(
+          id: user.id,
+          name: user.name,
+          avatar: user.avatar,
+          cityName: cityName,
+          bio: user.bio,
+        ),
+      );
+    }
+
+    return guides;
   }
 
   Future<List<Place>> fetchApprovedPlaces(String cityName) async {
@@ -232,76 +292,4 @@ class FirestoreService {
 
   String _cityDocId(String name) =>
       name.toLowerCase().replaceAll(' ', '_');
-
-  Future<void> seedInitialData() async {
-    if (await isDatabaseSeeded()) return;
-
-    debugPrint('FirestoreService: seeding initial cities and places...');
-
-    for (final city in City.sampleCities) {
-      await setCity(city);
-    }
-
-    for (final place in _samplePlacesForSeed()) {
-      await _places.add(place.toMap());
-    }
-
-    await markDatabaseSeeded();
-    debugPrint('FirestoreService: seed complete.');
-  }
-
-  List<Place> _samplePlacesForSeed() {
-    const cityName = 'Paris';
-    return [
-      Place(
-        id: '',
-        title: 'Le Petit Cafe',
-        description:
-            'Hidden gem coffee shop with amazing pastries and local vibe',
-        category: 'Cafe',
-        price: 2,
-        rating: 4.8,
-        hiddenGemScore: 9.2,
-        image:
-            'https://images.unsplash.com/photo-1739723745132-97df9db49db2?w=1080',
-        latitude: 48.8566,
-        longitude: 2.3522,
-        cityName: cityName,
-        isApproved: true,
-        contributorName: 'Emma',
-      ),
-      Place(
-        id: '',
-        title: 'Secret Market',
-        description: 'Authentic local market, open only on weekends',
-        category: 'Market',
-        price: 1,
-        rating: 4.9,
-        hiddenGemScore: 9.8,
-        image:
-            'https://images.unsplash.com/photo-1766650186677-947f1740a94d?w=1080',
-        latitude: 48.8606,
-        longitude: 2.3376,
-        cityName: cityName,
-        isApproved: true,
-        contributorName: 'Lucas',
-      ),
-      Place(
-        id: '',
-        title: 'Bistro Authentique',
-        description: 'Family-run restaurant with traditional cuisine',
-        category: 'Restaurant',
-        price: 3,
-        rating: 4.7,
-        hiddenGemScore: 8.5,
-        image:
-            'https://images.unsplash.com/photo-1564758564211-cc16d061f020?w=1080',
-        latitude: 48.8529,
-        longitude: 2.3499,
-        cityName: cityName,
-        isApproved: true,
-        contributorName: 'Sophie',
-      ),
-    ];
-  }
 }

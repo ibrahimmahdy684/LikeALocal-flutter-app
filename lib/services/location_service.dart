@@ -3,6 +3,19 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 class LocationService {
+  Future<LatLng?> getBestEffortPosition() async {
+    try {
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        return LatLng(lastKnown.latitude, lastKnown.longitude);
+      }
+    } catch (e) {
+      debugPrint('LocationService: could not read last known position — $e');
+    }
+
+    return getCurrentPosition();
+  }
+
   Future<LatLng?> getCurrentPosition() async {
     try {
       final enabled = await Geolocator.isLocationServiceEnabled();

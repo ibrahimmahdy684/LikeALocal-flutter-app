@@ -2,36 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_colors.dart';
-import '../models/city.dart';
 import '../models/place.dart';
 import '../providers/places_provider.dart';
 import '../providers/cities_provider.dart';
 import '../widgets/save_place_button.dart';
 import '../models/local_guide.dart';
+import '../services/firestore_service.dart';
 import 'guide_chat_screen.dart';
 import 'place_detail_screen.dart';
 import 'city_chat_screen.dart';
 
 class CityDetailScreen extends StatefulWidget {
   final String cityName;
-  const CityDetailScreen({Key? key, required this.cityName}) : super(key: key);
+  const CityDetailScreen({super.key, required this.cityName});
 
   @override
-  _CityDetailScreenState createState() => _CityDetailScreenState();
+  State<CityDetailScreen> createState() => _CityDetailScreenState();
 }
 
 class _CityDetailScreenState extends State<CityDetailScreen> {
   final _searchController = TextEditingController();
+  final _firestore = FirestoreService();
   String _searchQuery = '';
+  late Future<List<LocalGuide>> _guidesFuture;
 
-  String _cityImage(BuildContext context) {
+  String? _cityImage(BuildContext context) {
     final city = context.read<CitiesProvider>().cityByName(widget.cityName);
     if (city != null && city.image.isNotEmpty) return city.image;
-    final fallback = City.sampleCities.firstWhere(
-      (c) => c.name == widget.cityName,
-      orElse: () => City.sampleCities.first,
-    );
-    return fallback.image;
+    return null;
   }
 
   void _showCategoryFilter(BuildContext context, PlacesProvider provider) {
@@ -69,10 +67,11 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _guidesFuture = _firestore.fetchLocalGuidesForCity(widget.cityName);
     // Fetch places for this city
-    Future.microtask(() {
-      Provider.of<PlacesProvider>(context, listen: false)
-          .fetchPlaces(widget.cityName);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<PlacesProvider>().fetchPlaces(widget.cityName);
     });
   }
 
@@ -84,8 +83,6 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final guides = LocalGuide.forCity(widget.cityName);
-
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
@@ -128,11 +125,11 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
                       padding: EdgeInsets.all(8),
                       child: Container(
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
+                              color: Colors.black.withValues(alpha: 0.1),
                               blurRadius: 8,
                               offset: Offset(0, 2),
                             ),
@@ -149,22 +146,28 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
                       background: Stack(
                         fit: StackFit.expand,
                         children: [
-                          CachedNetworkImage(
-                            imageUrl: _cityImage(context),
-                            fit: BoxFit.cover,
-                            placeholder: (ctx, url) =>
-                                Container(color: AppColors.secondary),
-                            errorWidget: (ctx, url, err) =>
-                                Container(color: AppColors.primary.withOpacity(0.3)),
-                          ),
+                          if ((_cityImage(context) ?? '').isNotEmpty)
+                            CachedNetworkImage(
+                              imageUrl: _cityImage(context)!,
+                              fit: BoxFit.cover,
+                              placeholder: (ctx, url) =>
+                                  Container(color: AppColors.secondary),
+                              errorWidget: (ctx, url, err) => Container(
+                                color: AppColors.primary.withValues(alpha: 0.3),
+                              ),
+                            )
+                          else
+                            Container(
+                              color: AppColors.primary.withValues(alpha: 0.3),
+                            ),
                           Container(
                             decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
                                 colors: [
-                                  Colors.black.withOpacity(0.3),
-                                  Colors.black.withOpacity(0.6),
+                                  Colors.black.withValues(alpha: 0.3),
+                                  Colors.black.withValues(alpha: 0.6),
                                 ],
                               ),
                             ),
@@ -185,7 +188,7 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
                                       Shadow(
                                         offset: Offset(0, 2),
                                         blurRadius: 8,
-                                        color: Colors.black.withOpacity(0.8),
+                                        color: Colors.black.withValues(alpha: 0.8),
                                       ),
                                     ],
                                   ),
@@ -195,7 +198,7 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
                                   'Discover hidden gems',
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: Colors.white.withOpacity(0.9),
+                                    color: Colors.white.withValues(alpha: 0.9),
                                   ),
                                 ),
                               ],
@@ -264,57 +267,93 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
                     ),
                   ),
                   SliverToBoxAdapter(
-                    child: Container(
-                      height: 100,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: guides.length,
-                        itemBuilder: (context, index) {
-                          final guide = guides[index];
-                          return GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      GuideChatScreen(guide: guide),
-                                ),
-                              );
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.only(right: 16),
-                              child: Column(
-                                children: [
-                                  Container(
-                                    width: 64,
-                                    height: 64,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                          color: AppColors.accent, width: 2),
-                                    ),
-                                    child: ClipOval(
-                                      child: CachedNetworkImage(
-                                        imageUrl: guide.avatar,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    guide.name,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.muted,
-                                    ),
-                                  ),
-                                ],
+                    child: FutureBuilder<List<LocalGuide>>(
+                      future: _guidesFuture,
+                      builder: (context, snapshot) {
+                        final guides = snapshot.data ?? [];
+
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const SizedBox(
+                            height: 100,
+                            child: Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          );
+                        }
+
+                        if (guides.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text(
+                              'No local guides yet for this city',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppColors.muted,
                               ),
                             ),
                           );
-                        },
-                      ),
+                        }
+
+                        return SizedBox(
+                          height: 100,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: guides.length,
+                            itemBuilder: (context, index) {
+                              final guide = guides[index];
+                              return GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          GuideChatScreen(guide: guide),
+                                    ),
+                                  );
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 16),
+                                  child: Column(
+                                    children: [
+                                      Container(
+                                        width: 64,
+                                        height: 64,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                              color: AppColors.accent,
+                                              width: 2),
+                                        ),
+                                        child: ClipOval(
+                                          child: CachedNetworkImage(
+                                            imageUrl: guide.avatar,
+                                            fit: BoxFit.cover,
+                                            errorWidget: (ctx, url, err) =>
+                                                Container(
+                                              color: AppColors.secondary,
+                                              child: Icon(Icons.person,
+                                                  color: AppColors.muted),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        guide.name,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.muted,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
                     ),
                   ),
 
@@ -385,7 +424,7 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: Offset(0, 2),
           ),
@@ -500,7 +539,7 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
                             size: 12,
                             color: i < place.price
                                 ? AppColors.primary
-                                : AppColors.muted.withOpacity(0.3),
+                                : AppColors.muted.withValues(alpha: 0.3),
                           );
                         }),
                       ),

@@ -1,28 +1,38 @@
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
-import '../theme/app_colors.dart';
-import '../providers/auth_provider.dart';
-import '../providers/places_provider.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
+
+import '../models/city.dart';
 import '../models/place.dart';
+import '../providers/auth_provider.dart';
+import '../providers/cities_provider.dart';
+import '../providers/places_provider.dart';
+import '../theme/app_colors.dart';
 import 'auth_screen.dart';
 
 class AddPlaceScreen extends StatefulWidget {
+  const AddPlaceScreen({super.key});
+
   @override
-  _AddPlaceScreenState createState() => _AddPlaceScreenState();
+  State<AddPlaceScreen> createState() => _AddPlaceScreenState();
 }
 
 class _AddPlaceScreenState extends State<AddPlaceScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _countryController = TextEditingController();
+  final _mapController = MapController();
   String _selectedCategory = 'Cafe';
   int _priceRange = 1;
-  XFile? _pickedImage;
   Uint8List? _pickedImageBytes;
+  LatLng? _selectedLocation;
+  bool _hasPickedLocation = false;
   bool _isSubmitting = false;
 
   final List<String> _categories = [
@@ -42,18 +52,31 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
     if (image != null) {
       final bytes = await image.readAsBytes();
       setState(() {
-        _pickedImage = image;
         _pickedImageBytes = bytes;
       });
     }
   }
 
+  void _onMapTap(TapPosition tapPosition, LatLng point) {
+    setState(() {
+      _selectedLocation = point;
+      _hasPickedLocation = true;
+    });
+    _mapController.move(point, 15);
+  }
+
   Future<void> _submitPlace() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_hasPickedLocation || _selectedLocation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pick the place location on the map.')),
+      );
+      return;
+    }
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final placesProvider =
-        Provider.of<PlacesProvider>(context, listen: false);
+    final placesProvider = Provider.of<PlacesProvider>(context, listen: false);
+    final citiesProvider = Provider.of<CitiesProvider>(context, listen: false);
 
     if (!authProvider.isAuthenticated) {
       Navigator.push(
@@ -63,10 +86,28 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       return;
     }
 
+    final cityName = _cityController.text.trim();
+    final country = _countryController.text.trim();
+
     setState(() => _isSubmitting = true);
 
     try {
-      Place newPlace = Place(
+      final city = citiesProvider.cityByName(cityName);
+      if (city == null) {
+        await citiesProvider.saveCity(
+          City(
+            name: cityName,
+            country: country,
+            placeCount: 1,
+            latitude: _selectedLocation!.latitude,
+            longitude: _selectedLocation!.longitude,
+          ),
+        );
+      } else {
+        await citiesProvider.incrementCityPlaceCount(cityName);
+      }
+
+      final newPlace = Place(
         id: '',
         title: _nameController.text.trim(),
         description: _descriptionController.text.trim(),
@@ -74,8 +115,10 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         price: _priceRange,
         rating: 0,
         hiddenGemScore: 0,
-        image: '', // Would upload to Firebase Storage in production
-        cityName: 'Paris', // Default or user-selected city
+        image: '',
+        latitude: _selectedLocation!.latitude,
+        longitude: _selectedLocation!.longitude,
+        cityName: cityName,
         contributorId: authProvider.currentUser!.id,
         contributorName: authProvider.currentUser!.name,
         isApproved: authProvider.isLocal,
@@ -86,20 +129,21 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       await authProvider.addPoints(10);
       await placesProvider.refreshContributedPlaces(authProvider.currentUser!.id);
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              authProvider.isLocal
-                  ? 'Place published! +10 points'
-                  : 'Place submitted for approval! +10 points',
-            ),
-            backgroundColor: AppColors.accent,
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            authProvider.isLocal
+                ? 'Place published! +10 points'
+                : 'Place submitted for approval! +10 points',
           ),
-        );
-        Navigator.pop(context);
-      }
+          backgroundColor: AppColors.accent,
+        ),
+      );
+      Navigator.pop(context);
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error submitting place. Please try again.'),
@@ -115,6 +159,8 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
+    _cityController.dispose();
+    _countryController.dispose();
     super.dispose();
   }
 
@@ -122,7 +168,6 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
 
-    // Guest state - show lock screen
     if (!authProvider.isAuthenticated) {
       return Scaffold(
         backgroundColor: AppColors.background,
@@ -192,7 +237,6 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Image upload
               GestureDetector(
                 onTap: _pickImage,
                 child: Container(
@@ -212,7 +256,8 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                             _pickedImageBytes!,
                             fit: BoxFit.cover,
                             width: double.infinity,
-                            errorBuilder: (ctx, err, stack) => _buildUploadPlaceholder(),
+                            errorBuilder: (ctx, err, stack) =>
+                                _buildUploadPlaceholder(),
                           ),
                         )
                       : _buildUploadPlaceholder(),
@@ -220,7 +265,6 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
               ),
               SizedBox(height: 24),
 
-              // Place name
               TextFormField(
                 controller: _nameController,
                 decoration: InputDecoration(
@@ -236,7 +280,6 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
               ),
               SizedBox(height: 16),
 
-              // Description
               TextFormField(
                 controller: _descriptionController,
                 decoration: InputDecoration(
@@ -254,9 +297,96 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
               ),
               SizedBox(height: 16),
 
-              // Category dropdown
+              TextFormField(
+                controller: _cityController,
+                decoration: InputDecoration(
+                  labelText: 'City',
+                  hintText: 'Enter the city name',
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter a city';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 16),
+
+              TextFormField(
+                controller: _countryController,
+                decoration: InputDecoration(
+                  labelText: 'Country',
+                  hintText: 'Enter the country',
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter a country';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 16),
+
+              Text(
+                'Pick the exact location on the map',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.foreground,
+                ),
+              ),
+              SizedBox(height: 8),
+              Container(
+                height: 280,
+                decoration: BoxDecoration(
+                  color: AppColors.inputBackground,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.border),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: _selectedLocation ??
+                        const LatLng(30.0444, 31.2357),
+                    initialZoom: 12,
+                    onTap: _onMapTap,
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.likealocal.app',
+                    ),
+                    if (_selectedLocation != null)
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: _selectedLocation!,
+                            width: 40,
+                            height: 40,
+                            child: const Icon(
+                              Icons.location_on,
+                              color: Colors.red,
+                              size: 36,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                _hasPickedLocation
+                    ? 'Location selected: ${_selectedLocation!.latitude.toStringAsFixed(4)}, ${_selectedLocation!.longitude.toStringAsFixed(4)}'
+                    : 'Tap the map to mark the place location',
+                style: TextStyle(fontSize: 12, color: AppColors.muted),
+              ),
+              SizedBox(height: 16),
+
               DropdownButtonFormField<String>(
-                value: _selectedCategory,
+                initialValue: _selectedCategory,
                 decoration: InputDecoration(labelText: 'Category'),
                 items: _categories.map((cat) {
                   return DropdownMenuItem(value: cat, child: Text(cat));
@@ -267,7 +397,6 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
               ),
               SizedBox(height: 16),
 
-              // Price range
               Text(
                 'Price Range',
                 style: TextStyle(
@@ -279,8 +408,8 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
               SizedBox(height: 8),
               Row(
                 children: List.generate(3, (index) {
-                  int price = index + 1;
-                  bool isSelected = _priceRange == price;
+                  final price = index + 1;
+                  final isSelected = _priceRange == price;
                   return Padding(
                     padding: EdgeInsets.only(right: 12),
                     child: GestureDetector(
@@ -316,7 +445,6 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
               ),
               SizedBox(height: 32),
 
-              // Submit button
               SizedBox(
                 height: 52,
                 child: ElevatedButton(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -19,7 +21,7 @@ class MapScreen extends StatefulWidget {
   final String? cityName;
   final double? lat;
   final double? lng;
-  const MapScreen({Key? key, this.cityName, this.lat, this.lng}) : super(key: key);
+  const MapScreen({super.key, this.cityName, this.lat, this.lng});
 
   @override
   State<MapScreen> createState() => _MapScreenState();
@@ -56,24 +58,31 @@ class _MapScreenState extends State<MapScreen> {
       return;
     }
 
-    // Otherwise try to get the user's device location
-    final position = await _locationService.getCurrentPosition();
+    await places.fetchAllApprovedPlaces();
+    if (!mounted) return;
+
+    setState(() {
+      _locating = false;
+      _locationError = null;
+    });
+
+    unawaited(_resolveDeviceLocation(places));
+  }
+
+  Future<void> _resolveDeviceLocation(PlacesProvider places) async {
+    final position = await _locationService.getBestEffortPosition();
 
     if (!mounted) return;
 
     if (position != null) {
-      // Fetch ALL approved places (not just Paris) and sort by distance
       await places.fetchNearbyPlaces(position);
       _mapController.move(position, 14);
       setState(() {
-        _locating = false;
         _locationError = null;
       });
     } else {
-      await places.fetchPlaces('Paris');
       setState(() {
-        _locating = false;
-        _locationError = 'Location unavailable — showing Paris';
+        _locationError = 'Location unavailable — showing all places';
       });
     }
   }
@@ -90,8 +99,10 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _centerOnUser() async {
-    final position = await _locationService.getCurrentPosition();
+    final places = context.read<PlacesProvider>();
+    final position = await _locationService.getBestEffortPosition();
     if (position != null) {
+      await places.fetchNearbyPlaces(position);
       _mapController.move(position, 14);
     }
   }
@@ -108,7 +119,7 @@ class _MapScreenState extends State<MapScreen> {
               .toList();
           final mapPlaces = placesProvider.mapPlaces(isPro: isPro);
           final center = placesProvider.userLocation ??
-              const LatLng(48.8566, 2.3522);
+              const LatLng(30.0444, 31.2357);
 
           return Stack(
             children: [

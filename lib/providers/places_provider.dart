@@ -75,6 +75,23 @@ class PlacesProvider with ChangeNotifier {
     }
   }
 
+  Future<void> fetchAllApprovedPlaces() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      _places = await _firestore.fetchAllApprovedPlaces();
+      _nearbyPlaces = [];
+    } catch (e) {
+      debugPrint('PlacesProvider fetchAllApprovedPlaces: $e');
+      _places = [];
+      _nearbyPlaces = [];
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<String> addPlace(Place place) async {
     final id = await _firestore.addPlace(place);
     place.id = id;
