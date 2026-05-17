@@ -82,11 +82,29 @@ class _ChatScreenState extends State<ChatScreen> {
       final auth = context.read<AuthProvider>();
       final places = context.read<PlacesProvider>();
 
+      // Inject full database of places so the AI can reference real data
+      chat.setDatabasePlaces(places.getAllPlaces());
+
+      // Determine user's city from their saved/nearby places or location
+      String? userCity;
+      if (places.savedPlaces.isNotEmpty) {
+        userCity = places.savedPlaces.first.cityName;
+      } else if (places.getAllPlaces().isNotEmpty) {
+        userCity = places.getAllPlaces().first.cityName;
+      }
+
       if (auth.isAuthenticated) {
+        final pinnedIds = auth.currentUser!.pinnedPlaceIds;
+        final pinnedPlaces = places.savedPlaces
+            .where((p) => pinnedIds.contains(p.id))
+            .toList();
+
         chat.setPersonalizationContext(
           categories: auth.currentUser!.preferredCategories,
           budget: auth.currentUser!.budgetLevel,
           saved: places.savedPlaces,
+          pinned: pinnedPlaces,
+          userCity: userCity,
         );
       }
 
@@ -97,7 +115,7 @@ class _ChatScreenState extends State<ChatScreen> {
           cityName: widget.guide!.cityName,
         );
       } else {
-        chat.useAssistant();
+        chat.useAssistant(cityName: userCity);
       }
     });
   }

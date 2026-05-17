@@ -173,11 +173,13 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       );
       Navigator.pop(context);
     } catch (e) {
+      debugPrint('Place submission error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error submitting place. Please try again.'),
+          content: Text('Error: ${e.toString().length > 80 ? e.toString().substring(0, 80) : e}'),
           backgroundColor: AppColors.destructive,
+          duration: const Duration(seconds: 5),
         ),
       );
     } finally {

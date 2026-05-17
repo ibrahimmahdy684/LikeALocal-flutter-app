@@ -89,7 +89,7 @@ class Place {
       'contributorName': contributorName,
       'isApproved': isApproved,
       'tips': tips,
-      'createdAt': createdAt.toIso8601String(),
+      'createdAt': FieldValue.serverTimestamp(),
     };
   }
 }
