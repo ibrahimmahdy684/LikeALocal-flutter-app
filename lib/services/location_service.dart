@@ -3,7 +3,11 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 
 class LocationService {
+  /// Returns the best available position quickly.
+  /// First tries last known (instant), then falls back to a fresh fix
+  /// with a short timeout so the map doesn't block for too long.
   Future<LatLng?> getBestEffortPosition() async {
+    // Try cached/last-known first — this is nearly instant
     try {
       final lastKnown = await Geolocator.getLastKnownPosition();
       if (lastKnown != null) {
@@ -32,8 +36,12 @@ class LocationService {
 
       final position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium,
+          accuracy: LocationAccuracy.low, // faster fix
+          timeLimit: Duration(seconds: 8),
         ),
+      ).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw Exception('Location timeout'),
       );
       return LatLng(position.latitude, position.longitude);
     } catch (e) {

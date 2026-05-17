@@ -102,12 +102,58 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  final List<String> _suggestions = [
-    'Best cafes for working',
-    'Hidden gems in Montmartre',
-    'Authentic French restaurants',
-    'Free museums on Sundays',
-  ];
+  List<String> get _suggestions {
+    final auth = context.read<AuthProvider>();
+    final places = context.read<PlacesProvider>();
+    final suggestions = <String>[];
+
+    // Build personalized suggestions based on user data
+    if (auth.isAuthenticated) {
+      final user = auth.currentUser!;
+      final categories = user.preferredCategories;
+      final saved = places.savedPlaces;
+
+      // Suggest based on preferred categories
+      if (categories.isNotEmpty) {
+        suggestions.add('Best ${categories.first.toLowerCase()} spots nearby');
+      }
+
+      // Suggest based on saved places
+      if (saved.isNotEmpty) {
+        final lastSaved = saved.last;
+        suggestions.add('Places similar to ${lastSaved.title}');
+      }
+
+      // Budget-aware suggestion
+      final budget = user.budgetLevel;
+      if (budget == 1) {
+        suggestions.add('Free things to do today');
+      } else if (budget == 3) {
+        suggestions.add('Upscale dining experiences');
+      } else {
+        suggestions.add('Affordable hidden gems');
+      }
+
+      // Category they haven't explored
+      final allCats = ['Cafe', 'Restaurant', 'Market', 'Art & Culture', 'Outdoor', 'Nightlife'];
+      final unexplored = allCats.where((c) => !categories.contains(c)).toList();
+      if (unexplored.isNotEmpty) {
+        suggestions.add('Discover ${unexplored.first.toLowerCase()} places');
+      }
+    }
+
+    // Fallback defaults if no personalization available
+    if (suggestions.isEmpty) {
+      return [
+        'Best local cafes nearby',
+        'Hidden gems to explore',
+        'Where do locals eat?',
+        'Free activities today',
+      ];
+    }
+
+    return suggestions.take(4).toList();
+  }
 
   void _sendMessage(String text) {
     if (text.trim().isEmpty) return;

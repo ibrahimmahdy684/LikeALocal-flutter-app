@@ -33,11 +33,28 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
   final _maps = MapsLauncherService();
   double? _userRating;
   bool _loadingRating = true;
+  late double _displayRating;
+  late int _displayRatingCount;
 
   @override
   void initState() {
     super.initState();
+    _displayRating = widget.place.rating;
+    _displayRatingCount = widget.place.ratingCount;
     _loadUserRating();
+  }
+
+  Future<void> _refreshPlaceRating() async {
+    final doc = await _firestore.getPlaceById(widget.place.id);
+    if (doc != null && mounted) {
+      setState(() {
+        _displayRating = doc.rating;
+        _displayRatingCount = doc.ratingCount;
+        widget.place.rating = doc.rating;
+        widget.place.ratingCount = doc.ratingCount;
+        widget.place.ratingTotal = doc.ratingTotal;
+      });
+    }
   }
 
   Future<void> _loadUserRating() async {
@@ -67,6 +84,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
       rating: rating,
     );
     setState(() => _userRating = rating);
+    await _refreshPlaceRating();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Rating submitted!')),
@@ -102,6 +120,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
       rating: result['rating'],
     );
     setState(() => _userRating = result['rating']);
+    await _refreshPlaceRating();
   }
 
   Future<void> _editReview(Review review) async {
@@ -126,6 +145,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
       rating: result['rating'],
     );
     setState(() => _userRating = result['rating']);
+    await _refreshPlaceRating();
   }
 
   Future<void> _deleteReview(Review review) async {
@@ -311,12 +331,12 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                         Column(
                           children: [
                             Text(
-                              place.rating.toStringAsFixed(1),
+                              _displayRating.toStringAsFixed(1),
                               style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
                             ),
-                            RatingWidget(rating: place.rating, size: 16),
+                            RatingWidget(rating: _displayRating, size: 16),
                             Text(
-                              '${place.ratingCount} ratings',
+                              '$_displayRatingCount ratings',
                               style: TextStyle(fontSize: 12, color: AppColors.muted),
                             ),
                           ],

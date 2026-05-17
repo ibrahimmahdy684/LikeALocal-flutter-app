@@ -11,7 +11,10 @@ class AppConfig {
   //   flutter run --dart-define=GEMINI_API_KEY=your_key_here
   // Get a free key: https://aistudio.google.com/apikey
   // ──────────────────────────────────────────────────────────────
-  static const String geminiApiKey = String.fromEnvironment('GEMINI_API_KEY');
+  static const String geminiApiKey = String.fromEnvironment(
+    'GEMINI_API_KEY',
+    defaultValue: 'AIzaSyDh3-H3O_b8kIS64YLuo_maF5qmEE_W8Oo',
+  );
 
   static const String geminiModel = 'gemini-2.0-flash';
 

@@ -130,7 +130,19 @@ class _MapScreenState extends State<MapScreen> {
               .getAllPlaces()
               .where((p) => p.latitude != null && p.longitude != null)
               .toList();
-          final mapPlaces = placesProvider.mapPlaces(isPro: isPro);
+          final baseMapPlaces = placesProvider.mapPlaces(isPro: isPro);
+
+          // Always include pinned places on the map (even if not in nearby)
+          final pinnedIds = auth.currentUser?.pinnedPlaceIds ?? [];
+          final pinnedPlaces = placesProvider.savedPlaces
+              .where((p) => pinnedIds.contains(p.id) && p.latitude != null && p.longitude != null)
+              .toList();
+          final mapPlaceIds = baseMapPlaces.map((p) => p.id).toSet();
+          final mapPlaces = [
+            ...baseMapPlaces,
+            ...pinnedPlaces.where((p) => !mapPlaceIds.contains(p.id)),
+          ];
+
           final center = placesProvider.userLocation ??
               const LatLng(30.0444, 31.2357);
 
