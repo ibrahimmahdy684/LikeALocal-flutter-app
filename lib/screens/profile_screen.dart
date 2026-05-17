@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -6,6 +9,7 @@ import '../providers/auth_provider.dart';
 import '../providers/places_provider.dart';
 import '../providers/notifications_provider.dart';
 import '../models/user.dart';
+import 'admin_screen.dart';
 import 'auth_screen.dart';
 import 'add_place_screen.dart';
 import 'notifications_screen.dart';
@@ -107,6 +111,16 @@ class ProfileScreen extends StatelessWidget {
           centerTitle: true,
           automaticallyImplyLeading: false,
           actions: [
+            if (authProvider.isAdmin)
+              IconButton(
+                icon: Icon(Icons.admin_panel_settings),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (ctx) => const AdminScreen()),
+                  );
+                },
+              ),
             IconButton(
               icon: Icon(Icons.notifications_outlined),
               onPressed: () {
@@ -133,21 +147,7 @@ class ProfileScreen extends StatelessWidget {
                         horizontal: 16, vertical: 8),
                     child: Row(
                       children: [
-                        CircleAvatar(
-                          radius: 28,
-                          backgroundColor: AppColors.primaryLight,
-                          child: user.avatar.isNotEmpty
-                              ? ClipOval(
-                                  child: CachedNetworkImage(
-                                    imageUrl: user.avatar,
-                                    width: 56,
-                                    height: 56,
-                                    fit: BoxFit.cover,
-                                  ),
-                                )
-                              : Icon(Icons.person,
-                                  color: AppColors.primary, size: 28),
-                        ),
+                        _buildUserAvatar(user.avatar, user.name, 28),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -164,10 +164,17 @@ class ProfileScreen extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               Text(
-                                _getRoleName(user.role),
+                                _getRoleName(user.role) +
+                                    (user.role == UserRole.local &&
+                                            !user.isApproved
+                                        ? ' (Pending Approval)'
+                                        : ''),
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: AppColors.muted,
+                                  color: user.role == UserRole.local &&
+                                          !user.isApproved
+                                      ? AppColors.destructive
+                                      : AppColors.muted,
                                 ),
                               ),
                               const SizedBox(height: 6),
@@ -554,6 +561,58 @@ class ProfileScreen extends StatelessWidget {
             style: TextStyle(fontSize: 14, color: AppColors.muted),
           ),
         ],
+      ),
+    );
+  }
+
+  static Widget _buildUserAvatar(String avatar, String name, double radius) {
+    final initials = name.isNotEmpty
+        ? name.trim().split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join().toUpperCase()
+        : '?';
+    // Check if avatar is a local file path
+    if (avatar.isNotEmpty && !kIsWeb && !avatar.startsWith('http')) {
+      final file = File(avatar);
+      if (file.existsSync()) {
+        return CircleAvatar(
+          radius: radius,
+          backgroundImage: FileImage(file),
+        );
+      }
+    }
+    // Network image
+    if (avatar.isNotEmpty && avatar.startsWith('http')) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: AppColors.primaryLight,
+        child: ClipOval(
+          child: CachedNetworkImage(
+            imageUrl: avatar,
+            width: radius * 2,
+            height: radius * 2,
+            fit: BoxFit.cover,
+            errorWidget: (_, __, ___) => Text(
+              initials,
+              style: TextStyle(
+                fontSize: radius * 0.7,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    // Initials fallback
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: AppColors.primaryLight,
+      child: Text(
+        initials,
+        style: TextStyle(
+          fontSize: radius * 0.7,
+          fontWeight: FontWeight.w700,
+          color: AppColors.primary,
+        ),
       ),
     );
   }

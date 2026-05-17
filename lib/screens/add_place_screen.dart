@@ -121,7 +121,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         cityName: cityName,
         contributorId: authProvider.currentUser!.id,
         contributorName: authProvider.currentUser!.name,
-        isApproved: authProvider.isLocal,
+        isApproved: authProvider.isApprovedLocal,
       );
 
       await placesProvider.addPlace(newPlace);
@@ -134,7 +134,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            authProvider.isLocal
+            authProvider.isApprovedLocal
                 ? 'Place published! +10 points'
                 : 'Place submitted for approval! +10 points',
           ),

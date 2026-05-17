@@ -95,9 +95,7 @@ class FirestoreService {
       if (!doc.exists || doc.data() == null) continue;
 
       final user = AppUser.fromMap(doc.data()!, doc.id);
-      if (user.role != UserRole.local &&
-          user.role != UserRole.admin &&
-          user.role != UserRole.superUser) {
+      if (user.role != UserRole.local || !user.isApproved) {
         continue;
       }
 
@@ -288,6 +286,97 @@ class FirestoreService {
       'timestamp': FieldValue.serverTimestamp(),
       'isRead': false,
     });
+  }
+
+  // ── Guide chat (real-time 1:1) ──
+
+  /// Build a deterministic chat room ID from two user IDs.
+  String _guideChatId(String userId, String guideId) {
+    final ids = [userId, guideId]..sort();
+    return '${ids[0]}_${ids[1]}';
+  }
+
+  /// Stream messages between a user and a guide.
+  Stream<List<Map<String, dynamic>>> watchGuideChat(
+      String userId, String guideId) {
+    final chatId = _guideChatId(userId, guideId);
+    return _db
+        .collection(FirestoreCollections.guideChats)
+        .doc(chatId)
+        .collection(FirestoreCollections.messages)
+        .orderBy('createdAt', descending: false)
+        .limitToLast(100)
+        .snapshots()
+        .map((snap) => snap.docs.map((d) {
+              final data = d.data();
+              data['id'] = d.id;
+              return data;
+            }).toList());
+  }
+
+  /// Send a message in a guide chat.
+  Future<void> sendGuideChatMessage({
+    required String userId,
+    required String guideId,
+    required String senderName,
+    required String text,
+  }) async {
+    final chatId = _guideChatId(userId, guideId);
+    await _db
+        .collection(FirestoreCollections.guideChats)
+        .doc(chatId)
+        .collection(FirestoreCollections.messages)
+        .add({
+      'senderId': userId,
+      'senderName': senderName,
+      'text': text,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // ── Admin methods ──
+
+  /// Fetch all local guide users pending approval.
+  Future<List<AppUser>> fetchPendingLocalGuides() async {
+    final snapshot = await _users
+        .where('role', isEqualTo: 'local')
+        .where('isApproved', isEqualTo: false)
+        .get();
+    return snapshot.docs
+        .map((doc) => AppUser.fromMap(doc.data(), doc.id))
+        .toList();
+  }
+
+  /// Approve a local guide account.
+  Future<void> approveLocalGuide(String userId) async {
+    await _users.doc(userId).update({'isApproved': true});
+  }
+
+  /// Fetch all places (approved and unapproved) for admin.
+  Future<List<Place>> fetchAllPlaces() async {
+    final snapshot = await _places.get();
+    return snapshot.docs
+        .map((doc) => Place.fromMap(doc.data(), doc.id))
+        .toList();
+  }
+
+  /// Fetch unapproved places for admin review.
+  Future<List<Place>> fetchPendingPlaces() async {
+    final snapshot =
+        await _places.where('isApproved', isEqualTo: false).get();
+    return snapshot.docs
+        .map((doc) => Place.fromMap(doc.data(), doc.id))
+        .toList();
+  }
+
+  /// Approve a place.
+  Future<void> approvePlace(String placeId) async {
+    await _places.doc(placeId).update({'isApproved': true});
+  }
+
+  /// Delete a place.
+  Future<void> deletePlace(String placeId) async {
+    await _places.doc(placeId).delete();
   }
 
   String _cityDocId(String name) =>

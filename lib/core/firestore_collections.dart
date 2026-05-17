@@ -7,6 +7,7 @@ class FirestoreCollections {
   static const cityChats = 'cityChats';
   static const messages = 'messages';
   static const comments = 'comments';
+  static const guideChats = 'guideChats';
   static const meta = 'meta';
   static const seedDoc = 'seed';
 }

@@ -1,4 +1,8 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/places_provider.dart';
@@ -20,12 +24,26 @@ class _AuthScreenState extends State<AuthScreen> {
   int _authMode = 0; // 0 = login, 1 = signup
   UserRole _selectedRole = UserRole.tourist;
   String? _errorMessage;
+  String? _pickedImagePath;
 
   void _toggleAuthMode() {
     setState(() {
       _authMode = _authMode == 0 ? 1 : 0;
       _errorMessage = null;
     });
+  }
+
+  Future<void> _pickProfilePhoto() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 300,
+      maxHeight: 300,
+      imageQuality: 75,
+    );
+    if (image != null) {
+      setState(() => _pickedImagePath = image.path);
+    }
   }
 
   Future<void> _submit() async {
@@ -49,6 +67,7 @@ class _AuthScreenState extends State<AuthScreen> {
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
           role: _selectedRole,
+          avatar: _pickedImagePath ?? '',
         );
       }
       await authProvider.syncUserSession(
@@ -146,8 +165,41 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                 ),
 
-              // Name field (sign up only)
+              // Name field and photo (sign up only)
               if (_authMode == 1) ...[
+                // Profile photo picker
+                Center(
+                  child: GestureDetector(
+                    onTap: _pickProfilePhoto,
+                    child: Column(
+                      children: [
+                        CircleAvatar(
+                          radius: 40,
+                          backgroundColor: AppColors.primaryLight,
+                          backgroundImage: _pickedImagePath != null && !kIsWeb
+                              ? FileImage(File(_pickedImagePath!))
+                              : null,
+                          child: _pickedImagePath == null
+                              ? Icon(Icons.camera_alt,
+                                  color: AppColors.primary, size: 32)
+                              : null,
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          _pickedImagePath == null
+                              ? 'Add Profile Photo'
+                              : 'Change Photo',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(height: 16),
                 TextFormField(
                   controller: _nameController,
                   decoration: InputDecoration(
