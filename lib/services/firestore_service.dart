@@ -48,9 +48,26 @@ class FirestoreService {
 
   Future<List<City>> fetchCities() async {
     final snapshot = await _cities.orderBy('name').get();
-    return snapshot.docs
+    final cities = snapshot.docs
         .map((doc) => City.fromMap(doc.data(), doc.id))
         .toList();
+
+    // Update place counts dynamically from actual approved places
+    for (final city in cities) {
+      final placesSnap = await _places
+          .where('cityName', isEqualTo: city.name)
+          .where('isApproved', isEqualTo: true)
+          .count()
+          .get();
+      final actualCount = placesSnap.count ?? 0;
+      if (actualCount != city.placeCount) {
+        city.placeCount = actualCount;
+        // Update in background, don't await
+        _cities.doc(_cityDocId(city.name)).update({'placeCount': actualCount});
+      }
+    }
+
+    return cities;
   }
 
   Future<City?> fetchCityByName(String cityName) async {
@@ -152,6 +169,12 @@ class FirestoreService {
   Future<String> addPlace(Place place) async {
     final ref = await _places.add(place.toMap());
     return ref.id;
+  }
+
+  Future<Place?> getPlaceById(String placeId) async {
+    final doc = await _places.doc(placeId).get();
+    if (!doc.exists) return null;
+    return Place.fromMap(doc.data()!, doc.id);
   }
 
   Future<List<String>> getSavedPlaceIds(String userId) async {
@@ -286,6 +309,21 @@ class FirestoreService {
       'type': NotificationType.nearby.name,
       'title': 'You\'re near $placeName!',
       'message': '$placeName is just ${(distance * 1000).round()}m away.',
+      'timestamp': FieldValue.serverTimestamp(),
+      'isRead': false,
+    });
+  }
+
+  Future<void> createMessageNotification({
+    required String recipientId,
+    required String senderName,
+    required String messagePreview,
+  }) async {
+    await _notifications.add({
+      'userId': recipientId,
+      'type': NotificationType.message.name,
+      'title': 'New message from $senderName',
+      'message': messagePreview,
       'timestamp': FieldValue.serverTimestamp(),
       'isRead': false,
     });

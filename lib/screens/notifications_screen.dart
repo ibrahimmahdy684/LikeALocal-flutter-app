@@ -1,11 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../providers/notifications_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/notification_item.dart';
 
-class NotificationsScreen extends StatelessWidget {
+class NotificationsScreen extends StatefulWidget {
+  @override
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends State<NotificationsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (auth.currentUser == null) return;
+    await Provider.of<NotificationsProvider>(context, listen: false)
+        .loadForUser(auth.currentUser!.id);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -38,6 +57,10 @@ class NotificationsScreen extends StatelessWidget {
       ),
       body: Consumer<NotificationsProvider>(
         builder: (context, notifProvider, child) {
+          if (notifProvider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
           if (notifProvider.notifications.isEmpty) {
             return Center(
               child: Column(
@@ -64,16 +87,19 @@ class NotificationsScreen extends StatelessWidget {
             );
           }
 
-          return ListView.builder(
-            padding: EdgeInsets.all(16),
-            itemCount: notifProvider.notifications.length,
-            itemBuilder: (context, index) {
-              return _buildNotificationCard(
-                context,
-                notifProvider.notifications[index],
-                notifProvider,
-              );
-            },
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView.builder(
+              padding: EdgeInsets.all(16),
+              itemCount: notifProvider.notifications.length,
+              itemBuilder: (context, index) {
+                return _buildNotificationCard(
+                  context,
+                  notifProvider.notifications[index],
+                  notifProvider,
+                );
+              },
+            ),
           );
         },
       ),
@@ -122,7 +148,6 @@ class NotificationsScreen extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Icon
               Container(
                 width: 40,
                 height: 40,
@@ -137,7 +162,6 @@ class NotificationsScreen extends StatelessWidget {
                 ),
               ),
               SizedBox(width: 12),
-              // Content
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,7 +203,7 @@ class NotificationsScreen extends StatelessWidget {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'Just now',
+                      _formatTimestamp(notification.timestamp),
                       style: TextStyle(
                         fontSize: 11,
                         color: AppColors.muted.withOpacity(0.5),
@@ -193,6 +217,16 @@ class NotificationsScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _formatTimestamp(DateTime timestamp) {
+    final now = DateTime.now();
+    final diff = now.difference(timestamp);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return DateFormat.MMMd().format(timestamp);
   }
 
   IconData _getIcon(NotificationType type) {

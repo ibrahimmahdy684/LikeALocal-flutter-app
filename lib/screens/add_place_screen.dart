@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
@@ -88,7 +90,12 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       return;
     }
 
-    final cityName = _cityController.text.trim();
+    // Normalize city name for consistent storage
+    final rawCityName = _cityController.text.trim();
+    final cityName = rawCityName.split(' ').map((w) {
+      if (w.isEmpty) return w;
+      return w[0].toUpperCase() + w.substring(1).toLowerCase();
+    }).join(' ');
     final country = _countryController.text.trim();
 
     setState(() => _isSubmitting = true);
@@ -109,6 +116,24 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         await citiesProvider.incrementCityPlaceCount(cityName);
       }
 
+      // Upload image to Firebase Storage if selected
+      String imageUrl = '';
+      if (_pickedImageBytes != null) {
+        try {
+          final fileName = '${DateTime.now().millisecondsSinceEpoch}_${authProvider.currentUser!.id}.jpg';
+          final ref = FirebaseStorage.instance.ref().child('places/$fileName');
+          final uploadTask = await ref.putData(
+            _pickedImageBytes!,
+            SettableMetadata(contentType: 'image/jpeg'),
+          );
+          imageUrl = await uploadTask.ref.getDownloadURL();
+        } catch (e) {
+          debugPrint('Image upload failed: $e');
+          // If Firebase Storage fails, encode as base64 data URI as fallback
+          imageUrl = 'data:image/jpeg;base64,${base64Encode(_pickedImageBytes!)}';
+        }
+      }
+
       final newPlace = Place(
         id: '',
         title: _nameController.text.trim(),
@@ -119,7 +144,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         ratingCount: _initialRating > 0 ? 1 : 0,
         ratingTotal: _initialRating,
         hiddenGemScore: 0,
-        image: '',
+        image: imageUrl,
         latitude: _selectedLocation!.latitude,
         longitude: _selectedLocation!.longitude,
         cityName: cityName,

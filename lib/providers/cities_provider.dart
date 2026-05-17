@@ -33,15 +33,21 @@ class CitiesProvider with ChangeNotifier {
 
   City? cityByName(String name) {
     try {
-      return _cities.firstWhere((c) => c.name == name);
+      return _cities.firstWhere(
+        (c) => c.name.toLowerCase() == name.toLowerCase(),
+      );
     } catch (_) {
       return null;
     }
   }
 
   Future<void> saveCity(City city) async {
+    // Normalize city name: capitalize first letter of each word
+    city.name = _normalizeCityName(city.name);
     await _firestore.setCity(city);
-    final index = _cities.indexWhere((c) => c.name == city.name);
+    final index = _cities.indexWhere(
+      (c) => c.name.toLowerCase() == city.name.toLowerCase(),
+    );
     if (index == -1) {
       _cities = [..._cities, city];
     } else {
@@ -51,11 +57,22 @@ class CitiesProvider with ChangeNotifier {
   }
 
   Future<void> incrementCityPlaceCount(String cityName) async {
-    await _firestore.incrementCityPlaceCount(cityName);
-    final index = _cities.indexWhere((c) => c.name == cityName);
+    final normalized = _normalizeCityName(cityName);
+    await _firestore.incrementCityPlaceCount(normalized);
+    final index = _cities.indexWhere(
+      (c) => c.name.toLowerCase() == normalized.toLowerCase(),
+    );
     if (index != -1) {
       _cities[index].placeCount += 1;
       notifyListeners();
     }
+  }
+
+  /// Normalize city name: "cairo" -> "Cairo", "new york" -> "New York"
+  String _normalizeCityName(String name) {
+    return name.trim().split(' ').map((word) {
+      if (word.isEmpty) return word;
+      return word[0].toUpperCase() + word.substring(1).toLowerCase();
+    }).join(' ');
   }
 }

@@ -55,6 +55,17 @@ class _GuideChatScreenState extends State<GuideChatScreen> {
       senderName: auth.currentUser!.name,
       text: text,
     );
+
+    // Notify the recipient (guide or user) about the new message
+    final recipientId = auth.currentUser!.id == widget.guide.id
+        ? auth.currentUser!.id // This shouldn't happen but safety check
+        : widget.guide.id;
+    await _firestore.createMessageNotification(
+      recipientId: recipientId,
+      senderName: auth.currentUser!.name,
+      messagePreview: text.length > 50 ? '${text.substring(0, 50)}...' : text,
+    );
+
     _scrollToEnd();
   }
 

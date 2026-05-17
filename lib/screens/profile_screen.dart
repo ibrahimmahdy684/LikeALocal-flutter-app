@@ -162,82 +162,93 @@ class ProfileScreen extends StatelessWidget {
             ),
           ],
         ),
-        body: LayoutBuilder(
-          builder: (context, constraints) {
-            final headerHeight = constraints.maxHeight * 0.2;
-            return Column(
-              children: [
-                SizedBox(
-                  height: headerHeight.clamp(120, 180),
-                  child: Container(
-                    width: double.infinity,
-                    color: AppColors.surface,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
-                    child: Row(
-                      children: [
-                        _buildUserAvatar(user.avatar, user.name, 28),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                user.name,
-                                style: const TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                _getRoleName(user.role) +
-                                    (user.role == UserRole.local &&
-                                            !user.isApproved
-                                        ? ' (Pending Approval)'
-                                        : ''),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: user.role == UserRole.local &&
-                                          !user.isApproved
-                                      ? AppColors.destructive
-                                      : AppColors.muted,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
+        body: OrientationBuilder(
+          builder: (context, orientation) {
+            final isLandscape = orientation == Orientation.landscape;
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final headerHeight = isLandscape
+                    ? (constraints.maxHeight * 0.25).clamp(80.0, 120.0)
+                    : (constraints.maxHeight * 0.2).clamp(120.0, 180.0);
+                return Column(
+                  children: [
+                    SizedBox(
+                      height: headerHeight,
+                      child: Container(
+                        width: double.infinity,
+                        color: AppColors.surface,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isLandscape ? 32 : 16,
+                          vertical: isLandscape ? 4 : 8,
+                        ),
+                        child: Row(
+                          children: [
+                            _buildUserAvatar(
+                              user.avatar,
+                              user.name,
+                              isLandscape ? 22 : 28,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _compactStat(
-                                      'Saved', user.savedPlaces.toString()),
-                                  _compactStat('Shared',
-                                      user.sharedPlaces.toString()),
-                                  _compactStat(
-                                      'Pts', user.points.toString()),
+                                  Text(
+                                    user.name,
+                                    style: TextStyle(
+                                      fontSize: isLandscape ? 15 : 17,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  Text(
+                                    _getRoleName(user.role) +
+                                        (user.role == UserRole.local &&
+                                                !user.isApproved
+                                            ? ' (Pending Approval)'
+                                            : ''),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: user.role == UserRole.local &&
+                                              !user.isApproved
+                                          ? AppColors.destructive
+                                          : AppColors.muted,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      _compactStat(
+                                          'Saved', user.savedPlaces.toString()),
+                                      _compactStat('Shared',
+                                          user.sharedPlaces.toString()),
+                                      _compactStat(
+                                          'Pts', user.points.toString()),
+                                    ],
+                                  ),
                                 ],
                               ),
-                            ],
-                          ),
+                            ),
+                            IconButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (ctx) => AddPlaceScreen()),
+                                );
+                              },
+                              style: IconButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                              ),
+                              icon: const Icon(Icons.add, size: 20),
+                            ),
+                          ],
                         ),
-                        IconButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (ctx) => AddPlaceScreen()),
-                            );
-                          },
-                          style: IconButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                          ),
-                          icon: const Icon(Icons.add, size: 20),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
                 Material(
                   color: AppColors.surface,
                   child: TabBar(
@@ -290,6 +301,8 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ],
             );
+            },
+          );
           },
         ),
       ),
@@ -348,10 +361,13 @@ class ProfileScreen extends StatelessWidget {
             subtitle: 'Save your first place',
           );
         }
-        return GridView.builder(
+        return LayoutBuilder(
+          builder: (ctx, gridConstraints) {
+            final crossAxisCount = (gridConstraints.maxWidth / 180).floor().clamp(2, 4);
+            return GridView.builder(
           padding: EdgeInsets.all(16),
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
+            crossAxisCount: crossAxisCount,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
             childAspectRatio: 0.85,
@@ -423,6 +439,8 @@ class ProfileScreen extends StatelessWidget {
                 ],
               ),
             );
+          },
+        );
           },
         );
       },
