@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -52,7 +51,12 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final image = await picker.pickImage(source: ImageSource.gallery);
+    final image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 70,
+    );
     if (image != null) {
       final bytes = await image.readAsBytes();
       setState(() {
@@ -129,8 +133,12 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           imageUrl = await storageRef.getDownloadURL();
         } catch (e) {
           debugPrint('Image upload failed: $e');
-          // If Firebase Storage fails, encode as base64 data URI as fallback
-          imageUrl = 'data:image/jpeg;base64,${base64Encode(_pickedImageBytes!)}';
+          // Don't store base64 in Firestore — just skip the image
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Image upload failed. Place will be saved without photo.')),
+            );
+          }
         }
       }
 

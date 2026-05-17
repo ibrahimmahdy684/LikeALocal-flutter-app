@@ -7,6 +7,7 @@ import '../models/message.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/places_provider.dart';
+import 'guide_inbox_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   final LocalGuide? guide;
@@ -81,6 +82,11 @@ class _ChatScreenState extends State<ChatScreen> {
       final chat = context.read<ChatProvider>();
       final auth = context.read<AuthProvider>();
       final places = context.read<PlacesProvider>();
+
+      // Initialize per-user chat session
+      if (auth.isAuthenticated) {
+        chat.initForUser(auth.currentUser!.id);
+      }
 
       // Inject full database of places so the AI can reference real data
       chat.setDatabasePlaces(places.getAllPlaces());
@@ -232,25 +238,37 @@ class _ChatScreenState extends State<ChatScreen> {
               color: AppColors.primaryLight,
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.chat, color: AppColors.primary, size: 24),
+            child: Icon(Icons.smart_toy, color: AppColors.primary, size: 24),
           ),
           SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Community Chat',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.foreground,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'AI Assistant',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.foreground,
+                  ),
                 ),
-              ),
-              Text(
-                'Chat with locals and travelers',
-                style: TextStyle(fontSize: 12, color: AppColors.muted),
-              ),
-            ],
+                Text(
+                  'Personalized recommendations',
+                  style: TextStyle(fontSize: 12, color: AppColors.muted),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const GuideInboxScreen()),
+              );
+            },
+            icon: Icon(Icons.forum_outlined, color: AppColors.primary),
+            tooltip: 'Messages',
           ),
         ],
       ),

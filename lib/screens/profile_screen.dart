@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../theme/app_colors.dart';
 import '../providers/auth_provider.dart';
+import '../providers/chat_provider.dart';
 import '../providers/places_provider.dart';
 import '../providers/notifications_provider.dart';
 import '../models/user.dart';
@@ -280,6 +281,8 @@ class ProfileScreen extends StatelessWidget {
                       height: 44,
                       child: OutlinedButton(
                         onPressed: () {
+                          Provider.of<ChatProvider>(context, listen: false)
+                              .clearSession();
                           authProvider.signOut(
                             placesProvider: Provider.of<PlacesProvider>(
                                 context,

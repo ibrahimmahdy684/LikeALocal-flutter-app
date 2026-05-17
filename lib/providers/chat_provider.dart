@@ -18,6 +18,9 @@ class ChatProvider with ChangeNotifier {
   String? _guideName;
   String? _guideBio;
 
+  // Per-user isolation — tracks which user owns the current session
+  String? _currentUserId;
+
   // Personalization context
   List<String> _preferredCategories = [];
   int _budgetLevel = 2;
@@ -35,6 +38,32 @@ class ChatProvider with ChangeNotifier {
   ChatProvider() {
     _resetAssistantGreeting();
     _loadPreferences();
+  }
+
+  /// Initialize or switch the chat session for a specific user.
+  /// Resets messages if the user changes.
+  void initForUser(String userId) {
+    if (_currentUserId == userId) return;
+    _currentUserId = userId;
+    _messages = [];
+    _preferredCategories = [];
+    _budgetLevel = 2;
+    _pinnedPlaces = [];
+    _savedPlaces = [];
+    _resetAssistantGreeting();
+    _loadPreferences();
+  }
+
+  /// Clear session when user logs out.
+  void clearSession() {
+    _currentUserId = null;
+    _messages = [];
+    _preferredCategories = [];
+    _savedPlaces = [];
+    _pinnedPlaces = [];
+    _databasePlaces = [];
+    _cityName = '';
+    _resetAssistantGreeting();
   }
 
   Future<void> _loadPreferences() async {

@@ -3,12 +3,44 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../providers/cities_provider.dart';
+import '../providers/auth_provider.dart';
 import 'city_detail_screen.dart';
 
-class LandingScreen extends StatelessWidget {
+class LandingScreen extends StatefulWidget {
   final VoidCallback onExploreTap;
 
   const LandingScreen({Key? key, required this.onExploreTap}) : super(key: key);
+
+  @override
+  State<LandingScreen> createState() => _LandingScreenState();
+}
+
+class _LandingScreenState extends State<LandingScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animController;
+  late Animation<double> _fadeIn;
+  late Animation<Offset> _slideUp;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    );
+    _fadeIn = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _slideUp = Tween<Offset>(
+      begin: const Offset(0, 0.15),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOut));
+    _animController.forward();
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,10 +50,13 @@ class LandingScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildHeroSection(context),
+            const SizedBox(height: 40),
             _buildFeaturesSection(),
+            const SizedBox(height: 40),
             _buildPopularCities(context),
+            const SizedBox(height: 32),
             _buildExploreAllButton(context),
-            SizedBox(height: 24),
+            const SizedBox(height: 48),
           ],
         ),
       ),
@@ -30,105 +65,139 @@ class LandingScreen extends StatelessWidget {
 
   Widget _buildHeroSection(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
-    return Container(
-      height: screenHeight * 0.7,
+    final auth = context.watch<AuthProvider>();
+
+    return SizedBox(
+      height: screenHeight * 0.72,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // Background image
           CachedNetworkImage(
             imageUrl:
                 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=1080',
             fit: BoxFit.cover,
             placeholder: (context, url) =>
-                Container(color: AppColors.secondary),
+                Container(color: AppColors.primary),
             errorWidget: (context, url, error) =>
-                Container(color: AppColors.primary.withOpacity(0.3)),
+                Container(color: AppColors.primary),
           ),
-          // Gradient overlay
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
+                stops: const [0.0, 0.4, 0.85, 1.0],
                 colors: [
-                  AppColors.primary.withOpacity(0.4),
-                  AppColors.primary.withOpacity(0.2),
+                  Colors.black.withOpacity(0.3),
+                  Colors.transparent,
+                  Colors.black.withOpacity(0.5),
                   AppColors.background,
                 ],
               ),
             ),
           ),
-          // Content
-          Center(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'LikeALocal',
-                    style: TextStyle(
-                      fontSize: 48,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                      shadows: [
-                        Shadow(
-                          offset: Offset(0, 4),
-                          blurRadius: 10,
-                          color: Colors.black.withOpacity(0.3),
+          SafeArea(
+            child: FadeTransition(
+              opacity: _fadeIn,
+              child: SlideTransition(
+                position: _slideUp,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Spacer(flex: 2),
+                      Text(
+                        'LikeALocal',
+                        style: TextStyle(
+                          fontSize: 52,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: -1,
+                          shadows: [
+                            Shadow(
+                              offset: const Offset(0, 4),
+                              blurRadius: 20,
+                              color: Colors.black.withOpacity(0.4),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Where the whole world feels like home',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.white.withOpacity(0.95),
-                      shadows: [
-                        Shadow(
-                          offset: Offset(0, 2),
-                          blurRadius: 8,
-                          color: Colors.black.withOpacity(0.3),
-                        ),
-                      ],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: 32),
-                  // CTA Button
-                  ElevatedButton(
-                    onPressed: onExploreTap,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: AppColors.primary,
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(100),
                       ),
-                      elevation: 10,
-                      shadowColor: Colors.black.withOpacity(0.2),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Start Exploring',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                      const SizedBox(height: 12),
+                      Text(
+                        'Where the whole world feels like home.',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white.withOpacity(0.95),
+                          letterSpacing: 0.3,
+                          height: 1.4,
+                          shadows: [
+                            Shadow(
+                              offset: const Offset(0, 2),
+                              blurRadius: 10,
+                              color: Colors.black.withOpacity(0.4),
+                            ),
+                          ],
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Discover hidden gems through the eyes of locals',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.white.withOpacity(0.8),
+                          letterSpacing: 0.2,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 36),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 54,
+                        child: ElevatedButton(
+                          onPressed: widget.onExploreTap,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            elevation: 8,
+                            shadowColor: Colors.black.withOpacity(0.2),
+                          ),
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Start Exploring',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Icon(Icons.arrow_forward_rounded, size: 20),
+                            ],
                           ),
                         ),
-                        SizedBox(width: 8),
-                        Icon(Icons.chevron_right, size: 20),
+                      ),
+                      if (auth.isAuthenticated) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          'Welcome back, ${auth.currentUser!.name.split(' ').first}!',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.white.withOpacity(0.8),
+                          ),
+                        ),
                       ],
-                    ),
+                      const Spacer(flex: 1),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
@@ -139,44 +208,66 @@ class LandingScreen extends StatelessWidget {
 
   Widget _buildFeaturesSection() {
     return Padding(
-      padding: EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
           Text(
-            'Discover Hidden Gems',
+            'Why LikeALocal?',
             style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
               color: AppColors.foreground,
+              letterSpacing: -0.5,
             ),
-            textAlign: TextAlign.center,
           ),
-          SizedBox(height: 32),
-          _buildFeatureCard(
-            icon: Icons.people,
-            iconColor: AppColors.primary,
-            iconBg: AppColors.primaryLight,
-            title: 'Local Guides',
-            description:
-                'Connect with locals who know the best spots in every city',
+          const SizedBox(height: 8),
+          Text(
+            'Travel deeper, not just further',
+            style: TextStyle(fontSize: 14, color: AppColors.muted),
           ),
-          SizedBox(height: 24),
-          _buildFeatureCard(
-            icon: Icons.star,
-            iconColor: AppColors.accent,
-            iconBg: AppColors.accentLight,
-            title: 'Hidden Gems',
-            description:
-                'Find authentic places that tourists never discover',
+          const SizedBox(height: 28),
+          Row(
+            children: [
+              Expanded(
+                child: _buildFeatureCard(
+                  icon: Icons.people_alt_rounded,
+                  color: AppColors.primary,
+                  title: 'Local\nGuides',
+                  subtitle: 'Real locals sharing real spots',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildFeatureCard(
+                  icon: Icons.auto_awesome_rounded,
+                  color: AppColors.accent,
+                  title: 'Hidden\nGems',
+                  subtitle: 'Off the tourist trail',
+                ),
+              ),
+            ],
           ),
-          SizedBox(height: 24),
-          _buildFeatureCard(
-            icon: Icons.location_on,
-            iconColor: AppColors.primary,
-            iconBg: AppColors.primaryLight,
-            title: 'AI Recommendations',
-            description:
-                'Get personalized suggestions based on your preferences',
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildFeatureCard(
+                  icon: Icons.smart_toy_rounded,
+                  color: const Color(0xFF7C5CFC),
+                  title: 'AI\nAssistant',
+                  subtitle: 'Personalized picks',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildFeatureCard(
+                  icon: Icons.map_rounded,
+                  color: const Color(0xFFE8554E),
+                  title: 'Pin &\nExplore',
+                  subtitle: 'Your map, your way',
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -185,57 +276,51 @@ class LandingScreen extends StatelessWidget {
 
   Widget _buildFeatureCard({
     required IconData icon,
-    required Color iconColor,
-    required Color iconBg,
+    required Color color,
     required String title,
-    required String description,
+    required String subtitle,
   }) {
     return Container(
-      padding: EdgeInsets.all(24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: Offset(0, 2),
+            color: color.withOpacity(0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: iconBg,
+              color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: iconColor, size: 24),
+            child: Icon(icon, color: color, size: 24),
           ),
-          SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.foreground,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  description,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.muted,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 14),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AppColors.foreground,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.muted,
             ),
           ),
         ],
@@ -244,101 +329,118 @@ class LandingScreen extends StatelessWidget {
   }
 
   Widget _buildPopularCities(BuildContext context) {
-    final cities = context.watch<CitiesProvider>().cities.take(4).toList();
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Popular Cities',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppColors.foreground,
-            ),
-          ),
-          SizedBox(height: 16),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 2.0,
-            children: cities.map((city) {
-              return GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (ctx) =>
-                          CityDetailScreen(cityName: city.name),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 8,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
+    final cities = context.watch<CitiesProvider>().cities.take(6).toList();
+    if (cities.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            children: [
+              Text(
+                'Popular Cities',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.foreground,
+                ),
+              ),
+              const Spacer(),
+              TextButton(
+                onPressed: widget.onExploreTap,
+                child: Text(
+                  'See all',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        city.name,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.foreground,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 100,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            itemCount: cities.length,
+            itemBuilder: (context, index) {
+              final city = cities[index];
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => CityDetailScreen(cityName: city.name),
                       ),
-                      SizedBox(height: 2),
-                      Text(
-                        city.country,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.muted,
-                        ),
+                    );
+                  },
+                  child: Container(
+                    width: 140,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: AppColors.border.withOpacity(0.5),
                       ),
-                    ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.location_city_rounded,
+                            color: AppColors.primary, size: 22),
+                        const Spacer(),
+                        Text(
+                          city.name,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          city.country,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
-            }).toList(),
+            },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
   Widget _buildExploreAllButton(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(24, 32, 24, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: SizedBox(
-        height: 52,
-        child: ElevatedButton(
-          onPressed: onExploreTap,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
+        height: 54,
+        child: OutlinedButton(
+          onPressed: widget.onExploreTap,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.primary,
+            side: BorderSide(color: AppColors.primary, width: 1.5),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
             ),
           ),
-          child: Text(
+          child: const Text(
             'Explore All Cities',
             style: TextStyle(
               fontSize: 16,
