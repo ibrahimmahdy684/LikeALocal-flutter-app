@@ -8,6 +8,9 @@ class FirestoreCollections {
   static const messages = 'messages';
   static const comments = 'comments';
   static const guideChats = 'guideChats';
+  static const reviews = 'reviews';
+  static const ratings = 'ratings';
+  static const reminders = 'reminders';
   static const meta = 'meta';
   static const seedDoc = 'seed';
 }

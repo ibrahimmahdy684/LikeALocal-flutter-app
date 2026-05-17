@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_options.dart';
 
 import 'theme/app_theme.dart';
@@ -10,6 +11,10 @@ import 'providers/cities_provider.dart';
 import 'providers/chat_provider.dart';
 import 'providers/notifications_provider.dart';
 import 'providers/city_chat_provider.dart';
+import 'providers/review_provider.dart';
+import 'providers/reminder_provider.dart';
+import 'services/cache_service.dart';
+import 'services/nearby_notification_service.dart';
 import 'screens/home_shell.dart';
 
 void main() async {
@@ -17,6 +22,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await SharedPreferences.getInstance();
   runApp(MyApp());
 }
 
@@ -33,6 +39,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => NotificationsProvider()),
         ChangeNotifierProvider(create: (_) => CityChatProvider()),
+        ChangeNotifierProvider(create: (_) => ReviewProvider()),
+        ChangeNotifierProvider(create: (_) => ReminderProvider()),
       ],
       child: MaterialApp(
         title: 'LikeALocal',
@@ -54,11 +62,18 @@ class AppStartup extends StatefulWidget {
 class _AppStartupState extends State<AppStartup> {
   bool _isLoading = true;
   String? _initError;
+  final NearbyNotificationService _nearbyService = NearbyNotificationService();
 
   @override
   void initState() {
     super.initState();
     _initialize();
+  }
+
+  @override
+  void dispose() {
+    _nearbyService.stopMonitoring();
+    super.dispose();
   }
 
   Future<void> _initialize() async {
@@ -67,6 +82,7 @@ class _AppStartupState extends State<AppStartup> {
     final cities = Provider.of<CitiesProvider>(context, listen: false);
     final notifications =
         Provider.of<NotificationsProvider>(context, listen: false);
+    final reminders = Provider.of<ReminderProvider>(context, listen: false);
 
     try {
       await cities.fetchCities();
@@ -76,6 +92,17 @@ class _AppStartupState extends State<AppStartup> {
           placesProvider: places,
           notificationsProvider: notifications,
         );
+        await reminders.loadReminders(auth.currentUser!.id);
+
+        // Cache premium status locally
+        await CacheService.instance.savePremiumStatus(auth.currentUser!.isPro);
+        await CacheService.instance.savePinnedPlaces(auth.currentUser!.pinnedPlaceIds);
+
+        // Check for super user promotion
+        await auth.checkAndPromoteToSuperUser();
+
+        // Start nearby monitoring
+        _startNearbyMonitoring(auth, places, notifications);
       }
     } catch (e) {
       debugPrint('App startup failed: $e');
@@ -85,6 +112,32 @@ class _AppStartupState extends State<AppStartup> {
     if (mounted) {
       setState(() => _isLoading = false);
     }
+  }
+
+  void _startNearbyMonitoring(
+    AuthProvider auth,
+    PlacesProvider places,
+    NotificationsProvider notifications,
+  ) {
+    final allPlaces = places.getAllPlaces();
+    if (allPlaces.isEmpty) return;
+
+    _nearbyService.startMonitoring(
+      userId: auth.currentUser!.id,
+      places: allPlaces,
+      onNearbyPlace: (title, message) {
+        notifications.loadForUser(auth.currentUser!.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(title),
+              duration: const Duration(seconds: 4),
+              action: SnackBarAction(label: 'View', onPressed: () {}),
+            ),
+          );
+        }
+      },
+    );
   }
 
   @override

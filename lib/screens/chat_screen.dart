@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../models/local_guide.dart';
 import '../models/message.dart';
+import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
+import '../providers/places_provider.dart';
 
 class ChatScreen extends StatefulWidget {
   final LocalGuide? guide;
@@ -77,6 +79,17 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final chat = context.read<ChatProvider>();
+      final auth = context.read<AuthProvider>();
+      final places = context.read<PlacesProvider>();
+
+      if (auth.isAuthenticated) {
+        chat.setPersonalizationContext(
+          categories: auth.currentUser!.preferredCategories,
+          budget: auth.currentUser!.budgetLevel,
+          saved: places.savedPlaces,
+        );
+      }
+
       if (widget.guide != null) {
         chat.useGuide(
           guideName: widget.guide!.name,
