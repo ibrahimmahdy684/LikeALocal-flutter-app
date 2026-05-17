@@ -15,6 +15,7 @@ import 'providers/review_provider.dart';
 import 'providers/reminder_provider.dart';
 import 'services/cache_service.dart';
 import 'services/nearby_notification_service.dart';
+import 'services/push_notification_service.dart';
 import 'screens/home_shell.dart';
 
 void main() async {
@@ -100,6 +101,9 @@ class _AppStartupState extends State<AppStartup> {
 
         // Check for super user promotion
         await auth.checkAndPromoteToSuperUser();
+
+        // Initialize push notifications
+        await PushNotificationService().initialize(auth.currentUser!.id);
 
         // Start nearby monitoring
         _startNearbyMonitoring(auth, places, notifications);
