@@ -16,7 +16,7 @@ class AppConfig {
     defaultValue: 'AIzaSyDh3-H3O_b8kIS64YLuo_maF5qmEE_W8Oo',
   );
 
-  static const String geminiModel = 'gemini-2.0-flash';
+  static const String geminiModel = 'gemini-2.5-flash';
 
   // Freemium limits
   static const int freeMapPinLimit = 10;
