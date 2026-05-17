@@ -12,7 +12,10 @@ import '../models/user.dart';
 import 'admin_screen.dart';
 import 'auth_screen.dart';
 import 'add_place_screen.dart';
+import 'chat_privacy_screen.dart';
 import 'notifications_screen.dart';
+import 'preferences_screen.dart';
+import 'reminders_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   @override
@@ -121,6 +124,32 @@ class ProfileScreen extends StatelessWidget {
                   );
                 },
               ),
+            IconButton(
+              icon: Icon(Icons.alarm),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (ctx) => const RemindersScreen()),
+                );
+              },
+            ),
+            PopupMenuButton<String>(
+              icon: Icon(Icons.settings_outlined),
+              onSelected: (val) {
+                if (val == 'privacy') {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatPrivacyScreen()));
+                } else if (val == 'preferences') {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const PreferencesScreen()));
+                } else if (val == 'reminders') {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const RemindersScreen()));
+                }
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(value: 'privacy', child: Text('Privacy & Notifications')),
+                const PopupMenuItem(value: 'preferences', child: Text('My Preferences')),
+                const PopupMenuItem(value: 'reminders', child: Text('Reminders')),
+              ],
+            ),
             IconButton(
               icon: Icon(Icons.notifications_outlined),
               onPressed: () {

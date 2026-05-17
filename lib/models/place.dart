@@ -7,6 +7,8 @@ class Place {
   String category;
   int price; // 1-3
   double rating;
+  int ratingCount;
+  double ratingTotal;
   double hiddenGemScore;
   String image;
   double? latitude;
@@ -15,6 +17,7 @@ class Place {
   String contributorId;
   String contributorName;
   bool isApproved;
+  String tips;
   DateTime createdAt;
 
   Place({
@@ -24,6 +27,8 @@ class Place {
     required this.category,
     this.price = 1,
     this.rating = 0,
+    this.ratingCount = 0,
+    this.ratingTotal = 0,
     this.hiddenGemScore = 0,
     this.image = '',
     this.latitude,
@@ -32,6 +37,7 @@ class Place {
     this.contributorId = '',
     this.contributorName = '',
     this.isApproved = false,
+    this.tips = '',
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -43,6 +49,8 @@ class Place {
       category: map['category'] ?? '',
       price: map['price'] ?? 1,
       rating: (map['rating'] ?? 0).toDouble(),
+      ratingCount: map['ratingCount'] ?? 0,
+      ratingTotal: (map['ratingTotal'] ?? 0).toDouble(),
       hiddenGemScore: (map['hiddenGemScore'] ?? 0).toDouble(),
       image: map['image'] ?? '',
       latitude: map['latitude']?.toDouble(),
@@ -51,6 +59,7 @@ class Place {
       contributorId: map['contributorId'] ?? '',
       contributorName: map['contributorName'] ?? '',
       isApproved: map['isApproved'] ?? false,
+      tips: map['tips'] ?? '',
       createdAt: _parseDate(map['createdAt']),
     );
   }
@@ -69,6 +78,8 @@ class Place {
       'category': category,
       'price': price,
       'rating': rating,
+      'ratingCount': ratingCount,
+      'ratingTotal': ratingTotal,
       'hiddenGemScore': hiddenGemScore,
       'image': image,
       'latitude': latitude,
@@ -77,6 +88,7 @@ class Place {
       'contributorId': contributorId,
       'contributorName': contributorName,
       'isApproved': isApproved,
+      'tips': tips,
       'createdAt': createdAt.toIso8601String(),
     };
   }

@@ -4,12 +4,19 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 
 import '../models/place.dart';
-import '../models/place_comment.dart';
+import '../models/review.dart';
 import '../providers/auth_provider.dart';
+import '../providers/reminder_provider.dart';
+import '../providers/review_provider.dart';
 import '../services/firestore_service.dart';
 import '../services/maps_launcher_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/rating_widget.dart';
+import '../widgets/reminder_dialog.dart';
+import '../widgets/review_card.dart';
+import '../widgets/review_form_dialog.dart';
 import '../widgets/save_place_button.dart';
+import '../widgets/upgrade_pro_dialog.dart';
 import 'auth_screen.dart';
 
 class PlaceDetailScreen extends StatefulWidget {
@@ -22,35 +29,175 @@ class PlaceDetailScreen extends StatefulWidget {
 }
 
 class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
-  final _commentController = TextEditingController();
   final _firestore = FirestoreService();
   final _maps = MapsLauncherService();
+  double? _userRating;
+  bool _loadingRating = true;
 
   @override
-  void dispose() {
-    _commentController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _loadUserRating();
   }
 
-  Future<void> _postComment() async {
+  Future<void> _loadUserRating() async {
     final auth = context.read<AuthProvider>();
     if (!auth.isAuthenticated) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => AuthScreen()),
-      );
+      setState(() => _loadingRating = false);
       return;
     }
-    final text = _commentController.text.trim();
-    if (text.isEmpty) return;
+    final reviewProvider = context.read<ReviewProvider>();
+    _userRating = await reviewProvider.getUserRating(
+      widget.place.id,
+      auth.currentUser!.id,
+    );
+    if (mounted) setState(() => _loadingRating = false);
+  }
 
-    await _firestore.addPlaceComment(
+  Future<void> _ratePlace(double rating) async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isAuthenticated) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => AuthScreen()));
+      return;
+    }
+    final reviewProvider = context.read<ReviewProvider>();
+    await reviewProvider.ratePlace(
+      placeId: widget.place.id,
+      userId: auth.currentUser!.id,
+      rating: rating,
+    );
+    setState(() => _userRating = rating);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rating submitted!')),
+      );
+    }
+  }
+
+  Future<void> _writeReview() async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isAuthenticated) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => AuthScreen()));
+      return;
+    }
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => ReviewFormDialog(placeId: widget.place.id),
+    );
+    if (result == null) return;
+
+    final reviewProvider = context.read<ReviewProvider>();
+    await reviewProvider.addReview(
       placeId: widget.place.id,
       userId: auth.currentUser!.id,
       userName: auth.currentUser!.name,
-      text: text,
+      text: result['text'],
+      rating: result['rating'],
     );
-    _commentController.clear();
+
+    await reviewProvider.ratePlace(
+      placeId: widget.place.id,
+      userId: auth.currentUser!.id,
+      rating: result['rating'],
+    );
+    setState(() => _userRating = result['rating']);
+  }
+
+  Future<void> _editReview(Review review) async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => ReviewFormDialog(
+        placeId: widget.place.id,
+        existingReview: review,
+      ),
+    );
+    if (result == null) return;
+
+    review.text = result['text'];
+    review.rating = result['rating'];
+    review.updatedAt = DateTime.now();
+
+    final reviewProvider = context.read<ReviewProvider>();
+    await reviewProvider.updateReview(review);
+    await reviewProvider.ratePlace(
+      placeId: widget.place.id,
+      userId: review.userId,
+      rating: result['rating'],
+    );
+    setState(() => _userRating = result['rating']);
+  }
+
+  Future<void> _deleteReview(Review review) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Review'),
+        content: const Text('Are you sure you want to delete this review?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: AppColors.destructive)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final reviewProvider = context.read<ReviewProvider>();
+    await reviewProvider.deleteReview(widget.place.id, review.id);
+  }
+
+  Future<void> _pinPlace() async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isAuthenticated) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => AuthScreen()));
+      return;
+    }
+    try {
+      await auth.togglePinPlace(
+        widget.place.id,
+        isPro: auth.currentUser!.isPro,
+      );
+      if (mounted) {
+        final pinned = auth.isPlacePinned(widget.place.id);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(pinned ? 'Place pinned!' : 'Pin removed')),
+        );
+      }
+    } on FreemiumLimitException {
+      if (mounted) showUpgradeProDialog(context);
+    }
+  }
+
+  Future<void> _setReminder() async {
+    final auth = context.read<AuthProvider>();
+    if (!auth.isAuthenticated) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => AuthScreen()));
+      return;
+    }
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => ReminderDialog(placeName: widget.place.title),
+    );
+    if (result == null) return;
+
+    final reminderProvider = context.read<ReminderProvider>();
+    await reminderProvider.addReminder(
+      placeId: widget.place.id,
+      placeName: widget.place.title,
+      userId: auth.currentUser!.id,
+      reminderTime: result['dateTime'],
+      note: result['note'] ?? '',
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Reminder set for ${DateFormat.yMMMd().format(result['dateTime'])}')),
+      );
+    }
   }
 
   Future<void> _openDirections() async {
@@ -78,6 +225,8 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final place = widget.place;
+    final auth = context.watch<AuthProvider>();
+    final isPinned = auth.isPlacePinned(place.id);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -86,6 +235,21 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
           SliverAppBar(
             expandedHeight: 220,
             pinned: true,
+            actions: [
+              IconButton(
+                icon: Icon(
+                  isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                  color: isPinned ? AppColors.accent : Colors.white,
+                ),
+                onPressed: _pinPlace,
+                tooltip: isPinned ? 'Unpin' : 'Pin location',
+              ),
+              IconButton(
+                icon: const Icon(Icons.alarm_add, color: Colors.white),
+                onPressed: _setReminder,
+                tooltip: 'Set reminder',
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: place.image.isNotEmpty
                   ? CachedNetworkImage(
@@ -116,8 +280,69 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Text(place.description,
-                      style: TextStyle(color: AppColors.muted)),
+                  Text(place.description, style: TextStyle(color: AppColors.muted)),
+                  if (place.tips.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentLight,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.lightbulb_outline, size: 18, color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(place.tips, style: const TextStyle(fontSize: 13))),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  // Overall rating display
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Column(
+                          children: [
+                            Text(
+                              place.rating.toStringAsFixed(1),
+                              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+                            ),
+                            RatingWidget(rating: place.rating, size: 16),
+                            Text(
+                              '${place.ratingCount} ratings',
+                              style: TextStyle(fontSize: 12, color: AppColors.muted),
+                            ),
+                          ],
+                        ),
+                        const Spacer(),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            const Text('Your rating:', style: TextStyle(fontSize: 12)),
+                            const SizedBox(height: 4),
+                            _loadingRating
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : RatingBar(
+                                    initialRating: _userRating ?? 0,
+                                    onRatingUpdate: _ratePlace,
+                                    size: 28,
+                                  ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   Wrap(
                     spacing: 8,
@@ -125,10 +350,9 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                     children: [
                       Chip(label: Text(place.category)),
                       Chip(label: Text(place.cityName)),
+                      Chip(label: Text('\$' * place.price)),
                       Chip(
-                        label: Text(
-                          'Gem ${place.hiddenGemScore.toStringAsFixed(1)}',
-                        ),
+                        label: Text('Gem ${place.hiddenGemScore.toStringAsFixed(1)}'),
                         backgroundColor: AppColors.accentLight,
                       ),
                     ],
@@ -143,45 +367,30 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                           label: const Text('Directions'),
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _writeReview,
+                          icon: const Icon(Icons.rate_review, color: Colors.white),
+                          label: const Text('Write Review', style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 24),
                   const Text(
-                    'Comments',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    'Reviews',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _commentController,
-                          decoration: InputDecoration(
-                            hintText: 'Add a comment...',
-                            filled: true,
-                            fillColor: AppColors.surface,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: _postComment,
-                        icon: const Icon(Icons.send, color: AppColors.primary),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
           ),
-          StreamBuilder<List<PlaceComment>>(
-            stream: _firestore.watchPlaceComments(place.id),
+          // Reviews stream
+          StreamBuilder<List<Review>>(
+            stream: _firestore.watchReviews(widget.place.id),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const SliverToBoxAdapter(
@@ -191,39 +400,35 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
                   ),
                 );
               }
-              final comments = snapshot.data ?? [];
-              if (comments.isEmpty) {
+              final reviews = snapshot.data ?? [];
+              if (reviews.isEmpty) {
                 return SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      'No comments yet. Be the first!',
+                      'No reviews yet. Be the first to review!',
                       style: TextStyle(color: AppColors.muted),
                       textAlign: TextAlign.center,
                     ),
                   ),
                 );
               }
-              return SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final c = comments[index];
-                    return ListTile(
-                      leading: CircleAvatar(
-                        child: Text(c.userName.isNotEmpty
-                            ? c.userName[0].toUpperCase()
-                            : '?'),
-                      ),
-                      title: Text(c.userName,
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: Text(c.text),
-                      trailing: Text(
-                        DateFormat.MMMd().format(c.createdAt),
-                        style: TextStyle(fontSize: 11, color: AppColors.muted),
-                      ),
-                    );
-                  },
-                  childCount: comments.length,
+              return SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final review = reviews[index];
+                      final isOwner = auth.currentUser?.id == review.userId;
+                      return ReviewCard(
+                        review: review,
+                        isOwner: isOwner,
+                        onEdit: () => _editReview(review),
+                        onDelete: () => _deleteReview(review),
+                      );
+                    },
+                    childCount: reviews.length,
+                  ),
                 ),
               );
             },

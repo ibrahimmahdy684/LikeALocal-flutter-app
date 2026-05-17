@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/firestore_collections.dart';
 import '../models/user.dart';
+import '../services/cache_service.dart';
 import '../services/firestore_service.dart';
 import 'notifications_provider.dart';
 import 'places_provider.dart';
@@ -130,6 +131,7 @@ class AuthProvider with ChangeNotifier {
 
     final prefs = await SharedPreferences.getInstance();
     prefs.setBool('isLoggedIn', false);
+    await CacheService.instance.clearAll();
     notifyListeners();
   }
 
@@ -202,4 +204,114 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
     await checkAndAwardBadges();
   }
+
+  // ── Chat Privacy ──
+
+  Future<void> updateChatPrivacy(ChatPrivacy privacy) async {
+    if (_currentUser == null) return;
+    _currentUser!.chatPrivacy = privacy;
+    await _firestoreService.updateChatPrivacy(_currentUser!.id, privacy);
+    await CacheService.instance.saveChatPrivacy(privacy.name);
+    notifyListeners();
+  }
+
+  Future<void> blockUser(String blockedId) async {
+    if (_currentUser == null) return;
+    if (!_currentUser!.blockedUserIds.contains(blockedId)) {
+      _currentUser!.blockedUserIds = [..._currentUser!.blockedUserIds, blockedId];
+      await _firestoreService.blockUser(_currentUser!.id, blockedId);
+      notifyListeners();
+    }
+  }
+
+  Future<void> unblockUser(String blockedId) async {
+    if (_currentUser == null) return;
+    _currentUser!.blockedUserIds = _currentUser!.blockedUserIds
+        .where((id) => id != blockedId)
+        .toList();
+    await _firestoreService.unblockUser(_currentUser!.id, blockedId);
+    notifyListeners();
+  }
+
+  bool canContactMe(String senderId) {
+    if (_currentUser == null) return false;
+    if (_currentUser!.blockedUserIds.contains(senderId)) return false;
+    switch (_currentUser!.chatPrivacy) {
+      case ChatPrivacy.nobody:
+        return false;
+      case ChatPrivacy.guidesOnly:
+        return false; // Only guides can message; checked externally
+      case ChatPrivacy.everyone:
+        return true;
+    }
+  }
+
+  // ── Pinned Places ──
+
+  Future<void> togglePinPlace(String placeId, {required bool isPro}) async {
+    if (_currentUser == null) return;
+    final pins = List<String>.from(_currentUser!.pinnedPlaceIds);
+
+    if (pins.contains(placeId)) {
+      pins.remove(placeId);
+    } else {
+      if (!isPro && pins.length >= 10) {
+        throw FreemiumLimitException('Free users can pin up to 10 locations. Upgrade to Premium for unlimited pins.');
+      }
+      pins.add(placeId);
+    }
+
+    _currentUser!.pinnedPlaceIds = pins;
+    await _firestoreService.updatePinnedPlaces(
+      userId: _currentUser!.id,
+      pinnedPlaceIds: pins,
+    );
+    await CacheService.instance.savePinnedPlaces(pins);
+    notifyListeners();
+  }
+
+  bool isPlacePinned(String placeId) {
+    return _currentUser?.pinnedPlaceIds.contains(placeId) ?? false;
+  }
+
+  // ── Preferences ──
+
+  Future<void> updatePreferences({
+    required List<String> categories,
+    required int budgetLevel,
+  }) async {
+    if (_currentUser == null) return;
+    _currentUser!.preferredCategories = categories;
+    _currentUser!.budgetLevel = budgetLevel;
+    await _firestoreService.updatePreferences(
+      userId: _currentUser!.id,
+      categories: categories,
+      budgetLevel: budgetLevel,
+    );
+    await CacheService.instance.savePreferredCategories(categories);
+    await CacheService.instance.saveBudgetLevel(budgetLevel);
+    notifyListeners();
+  }
+
+  // ── Super User Promotion ──
+
+  Future<void> checkAndPromoteToSuperUser() async {
+    if (_currentUser == null) return;
+    if (_currentUser!.role != UserRole.tourist) return;
+    if (_currentUser!.points < 500) return;
+
+    _currentUser!.role = UserRole.superUser;
+    _currentUser!.promotedToSuperAt = DateTime.now();
+    await _firestoreService.promoteToSuperUser(_currentUser!.id);
+    await addBadge('Super User');
+    notifyListeners();
+  }
+}
+
+class FreemiumLimitException implements Exception {
+  final String message;
+  FreemiumLimitException(this.message);
+
+  @override
+  String toString() => message;
 }

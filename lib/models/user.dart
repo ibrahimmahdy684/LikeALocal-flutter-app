@@ -1,5 +1,7 @@
 enum UserRole { tourist, local, admin, superUser }
 
+enum ChatPrivacy { everyone, guidesOnly, nobody }
+
 class AppUser {
   String id;
   String name;
@@ -12,8 +14,14 @@ class AppUser {
   int points;
   List<String> badges;
   List<String> savedPlaceIds;
+  List<String> pinnedPlaceIds;
   bool isPro;
   bool isApproved;
+  ChatPrivacy chatPrivacy;
+  List<String> blockedUserIds;
+  List<String> preferredCategories;
+  int budgetLevel;
+  DateTime? promotedToSuperAt;
 
   AppUser({
     required this.id,
@@ -27,8 +35,14 @@ class AppUser {
     this.points = 0,
     this.badges = const [],
     this.savedPlaceIds = const [],
+    this.pinnedPlaceIds = const [],
     this.isPro = false,
     this.isApproved = true,
+    this.chatPrivacy = ChatPrivacy.everyone,
+    this.blockedUserIds = const [],
+    this.preferredCategories = const [],
+    this.budgetLevel = 2,
+    this.promotedToSuperAt,
   });
 
   factory AppUser.fromMap(Map<String, dynamic> map, String id) {
@@ -47,8 +61,19 @@ class AppUser {
       points: map['points'] ?? 0,
       badges: List<String>.from(map['badges'] ?? []),
       savedPlaceIds: List<String>.from(map['savedPlaceIds'] ?? []),
+      pinnedPlaceIds: List<String>.from(map['pinnedPlaceIds'] ?? []),
       isPro: map['isPro'] ?? false,
       isApproved: map['isApproved'] ?? true,
+      chatPrivacy: ChatPrivacy.values.firstWhere(
+        (e) => e.name == (map['chatPrivacy'] ?? 'everyone'),
+        orElse: () => ChatPrivacy.everyone,
+      ),
+      blockedUserIds: List<String>.from(map['blockedUserIds'] ?? []),
+      preferredCategories: List<String>.from(map['preferredCategories'] ?? []),
+      budgetLevel: map['budgetLevel'] ?? 2,
+      promotedToSuperAt: map['promotedToSuperAt'] != null
+          ? DateTime.tryParse(map['promotedToSuperAt'].toString())
+          : null,
     );
   }
 
@@ -64,8 +89,15 @@ class AppUser {
       'points': points,
       'badges': badges,
       'savedPlaceIds': savedPlaceIds,
+      'pinnedPlaceIds': pinnedPlaceIds,
       'isPro': isPro,
       'isApproved': isApproved,
+      'chatPrivacy': chatPrivacy.name,
+      'blockedUserIds': blockedUserIds,
+      'preferredCategories': preferredCategories,
+      'budgetLevel': budgetLevel,
+      if (promotedToSuperAt != null)
+        'promotedToSuperAt': promotedToSuperAt!.toIso8601String(),
     };
   }
 }

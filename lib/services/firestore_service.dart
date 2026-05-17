@@ -6,6 +6,8 @@ import '../models/local_guide.dart';
 import '../models/notification_item.dart';
 import '../models/place.dart';
 import '../models/place_comment.dart';
+import '../models/place_reminder.dart';
+import '../models/review.dart';
 import '../models/user.dart';
 
 class FirestoreService {
@@ -274,6 +276,35 @@ class FirestoreService {
     });
   }
 
+  Future<void> createNearbyNotification({
+    required String userId,
+    required String placeName,
+    required double distance,
+  }) async {
+    await _notifications.add({
+      'userId': userId,
+      'type': NotificationType.nearby.name,
+      'title': 'You\'re near $placeName!',
+      'message': '$placeName is just ${(distance * 1000).round()}m away.',
+      'timestamp': FieldValue.serverTimestamp(),
+      'isRead': false,
+    });
+  }
+
+  Future<void> createReminderNotification({
+    required String userId,
+    required String placeName,
+  }) async {
+    await _notifications.add({
+      'userId': userId,
+      'type': NotificationType.reminder.name,
+      'title': 'Reminder: Visit $placeName',
+      'message': 'You set a reminder to visit $placeName. Time to explore!',
+      'timestamp': FieldValue.serverTimestamp(),
+      'isRead': false,
+    });
+  }
+
   Future<void> createWelcomeNotification({
     required String userId,
     required String userName,
@@ -377,6 +408,235 @@ class FirestoreService {
   /// Delete a place.
   Future<void> deletePlace(String placeId) async {
     await _places.doc(placeId).delete();
+  }
+
+  // ── Reviews ──
+
+  Future<String> addReview(Review review) async {
+    final ref = await _places
+        .doc(review.placeId)
+        .collection(FirestoreCollections.reviews)
+        .add(review.toMap());
+    await _updatePlaceRating(review.placeId);
+    return ref.id;
+  }
+
+  Future<void> updateReview(Review review) async {
+    await _places
+        .doc(review.placeId)
+        .collection(FirestoreCollections.reviews)
+        .doc(review.id)
+        .update({
+      'text': review.text,
+      'rating': review.rating,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    await _updatePlaceRating(review.placeId);
+  }
+
+  Future<void> deleteReview(String placeId, String reviewId) async {
+    await _places
+        .doc(placeId)
+        .collection(FirestoreCollections.reviews)
+        .doc(reviewId)
+        .delete();
+    await _updatePlaceRating(placeId);
+  }
+
+  Stream<List<Review>> watchReviews(String placeId) {
+    return _places
+        .doc(placeId)
+        .collection(FirestoreCollections.reviews)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => Review.fromMap(d.data(), d.id)).toList());
+  }
+
+  Future<Review?> getUserReview(String placeId, String userId) async {
+    final snap = await _places
+        .doc(placeId)
+        .collection(FirestoreCollections.reviews)
+        .where('userId', isEqualTo: userId)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    return Review.fromMap(snap.docs.first.data(), snap.docs.first.id);
+  }
+
+  // ── Ratings ──
+
+  Future<void> ratePlace({
+    required String placeId,
+    required String userId,
+    required double rating,
+  }) async {
+    final ratingDoc = _places
+        .doc(placeId)
+        .collection(FirestoreCollections.ratings)
+        .doc(userId);
+
+    await ratingDoc.set({
+      'userId': userId,
+      'rating': rating,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    await _updatePlaceRating(placeId);
+  }
+
+  Future<double?> getUserRating(String placeId, String userId) async {
+    final doc = await _places
+        .doc(placeId)
+        .collection(FirestoreCollections.ratings)
+        .doc(userId)
+        .get();
+    if (!doc.exists) return null;
+    return (doc.data()?['rating'] ?? 0).toDouble();
+  }
+
+  Future<void> _updatePlaceRating(String placeId) async {
+    final ratingsSnap = await _places
+        .doc(placeId)
+        .collection(FirestoreCollections.ratings)
+        .get();
+
+    if (ratingsSnap.docs.isEmpty) {
+      await _places.doc(placeId).update({
+        'rating': 0,
+        'ratingCount': 0,
+        'ratingTotal': 0,
+      });
+      return;
+    }
+
+    double total = 0;
+    for (final doc in ratingsSnap.docs) {
+      total += (doc.data()['rating'] ?? 0).toDouble();
+    }
+    final count = ratingsSnap.docs.length;
+    final average = total / count;
+
+    await _places.doc(placeId).update({
+      'rating': average,
+      'ratingCount': count,
+      'ratingTotal': total,
+    });
+  }
+
+  // ── Privacy ──
+
+  Future<void> updateChatPrivacy(String userId, ChatPrivacy privacy) async {
+    await _users.doc(userId).update({'chatPrivacy': privacy.name});
+  }
+
+  Future<void> blockUser(String userId, String blockedId) async {
+    await _users.doc(userId).update({
+      'blockedUserIds': FieldValue.arrayUnion([blockedId]),
+    });
+  }
+
+  Future<void> unblockUser(String userId, String blockedId) async {
+    await _users.doc(userId).update({
+      'blockedUserIds': FieldValue.arrayRemove([blockedId]),
+    });
+  }
+
+  Future<ChatPrivacy> getChatPrivacy(String userId) async {
+    final doc = await _users.doc(userId).get();
+    final val = doc.data()?['chatPrivacy'] ?? 'everyone';
+    return ChatPrivacy.values.firstWhere(
+      (e) => e.name == val,
+      orElse: () => ChatPrivacy.everyone,
+    );
+  }
+
+  // ── Reminders ──
+
+  Future<String> addReminder(PlaceReminder reminder) async {
+    final ref = await _db
+        .collection(FirestoreCollections.reminders)
+        .add(reminder.toMap());
+    return ref.id;
+  }
+
+  Future<void> updateReminder(PlaceReminder reminder) async {
+    await _db
+        .collection(FirestoreCollections.reminders)
+        .doc(reminder.id)
+        .update(reminder.toMap());
+  }
+
+  Future<void> deleteReminder(String reminderId) async {
+    await _db
+        .collection(FirestoreCollections.reminders)
+        .doc(reminderId)
+        .delete();
+  }
+
+  Future<List<PlaceReminder>> fetchReminders(String userId) async {
+    final snap = await _db
+        .collection(FirestoreCollections.reminders)
+        .where('userId', isEqualTo: userId)
+        .orderBy('reminderTime')
+        .get();
+    return snap.docs
+        .map((d) => PlaceReminder.fromMap(d.data(), d.id))
+        .toList();
+  }
+
+  Future<void> completeReminder(String reminderId) async {
+    await _db
+        .collection(FirestoreCollections.reminders)
+        .doc(reminderId)
+        .update({'isCompleted': true});
+  }
+
+  // ── Pinned Places ──
+
+  Future<void> updatePinnedPlaces({
+    required String userId,
+    required List<String> pinnedPlaceIds,
+  }) async {
+    await _users.doc(userId).update({'pinnedPlaceIds': pinnedPlaceIds});
+  }
+
+  // ── User Preferences ──
+
+  Future<void> updatePreferences({
+    required String userId,
+    required List<String> categories,
+    required int budgetLevel,
+  }) async {
+    await _users.doc(userId).update({
+      'preferredCategories': categories,
+      'budgetLevel': budgetLevel,
+    });
+  }
+
+  // ── Super User Promotion ──
+
+  Future<void> promoteToSuperUser(String userId) async {
+    await _users.doc(userId).update({
+      'role': UserRole.superUser.name,
+      'promotedToSuperAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  Future<List<AppUser>> fetchSuperUserCandidates() async {
+    final snap = await _users
+        .where('role', isEqualTo: 'tourist')
+        .where('points', isGreaterThanOrEqualTo: 500)
+        .get();
+    return snap.docs
+        .map((d) => AppUser.fromMap(d.data(), d.id))
+        .toList();
+  }
+
+  // ── Premium ──
+
+  Future<void> upgradeToPro(String userId) async {
+    await _users.doc(userId).update({'isPro': true});
   }
 
   String _cityDocId(String name) =>

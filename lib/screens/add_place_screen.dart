@@ -28,8 +28,10 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
   final _cityController = TextEditingController();
   final _countryController = TextEditingController();
   final _mapController = MapController();
+  final _tipsController = TextEditingController();
   String _selectedCategory = 'Cafe';
   int _priceRange = 1;
+  double _initialRating = 0;
   Uint8List? _pickedImageBytes;
   LatLng? _selectedLocation;
   bool _hasPickedLocation = false;
@@ -113,7 +115,9 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         description: _descriptionController.text.trim(),
         category: _selectedCategory,
         price: _priceRange,
-        rating: 0,
+        rating: _initialRating,
+        ratingCount: _initialRating > 0 ? 1 : 0,
+        ratingTotal: _initialRating,
         hiddenGemScore: 0,
         image: '',
         latitude: _selectedLocation!.latitude,
@@ -122,6 +126,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         contributorId: authProvider.currentUser!.id,
         contributorName: authProvider.currentUser!.name,
         isApproved: authProvider.isApprovedLocal,
+        tips: _tipsController.text.trim(),
       );
 
       await placesProvider.addPlace(newPlace);
@@ -161,6 +166,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
     _descriptionController.dispose();
     _cityController.dispose();
     _countryController.dispose();
+    _tipsController.dispose();
     super.dispose();
   }
 
@@ -386,7 +392,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
               SizedBox(height: 16),
 
               DropdownButtonFormField<String>(
-                initialValue: _selectedCategory,
+                value: _selectedCategory,
                 decoration: InputDecoration(labelText: 'Category'),
                 items: _categories.map((cat) {
                   return DropdownMenuItem(value: cat, child: Text(cat));
@@ -438,6 +444,43 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                                 : AppColors.foreground,
                           ),
                         ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+              SizedBox(height: 16),
+
+              TextFormField(
+                controller: _tipsController,
+                decoration: InputDecoration(
+                  labelText: 'Tips (optional)',
+                  hintText: 'Any tips for visitors? (e.g., best time to visit)',
+                ),
+                maxLines: 2,
+              ),
+              SizedBox(height: 16),
+
+              Text(
+                'Your Rating',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.foreground,
+                ),
+              ),
+              SizedBox(height: 8),
+              Row(
+                children: List.generate(5, (index) {
+                  final starVal = index + 1.0;
+                  return GestureDetector(
+                    onTap: () => setState(() => _initialRating = starVal),
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: Icon(
+                        _initialRating >= starVal ? Icons.star : Icons.star_border,
+                        color: Color(0xFF7ED957),
+                        size: 32,
                       ),
                     ),
                   );
