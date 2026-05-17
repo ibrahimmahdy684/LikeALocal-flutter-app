@@ -67,9 +67,7 @@ class _AppStartupState extends State<AppStartup> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initialize();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _initialize());
   }
 
   @override

@@ -121,12 +121,12 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       if (_pickedImageBytes != null) {
         try {
           final fileName = '${DateTime.now().millisecondsSinceEpoch}_${authProvider.currentUser!.id}.jpg';
-          final ref = FirebaseStorage.instance.ref().child('places/$fileName');
-          final uploadTask = await ref.putData(
+          final storageRef = FirebaseStorage.instance.ref('places/$fileName');
+          await storageRef.putData(
             _pickedImageBytes!,
             SettableMetadata(contentType: 'image/jpeg'),
           );
-          imageUrl = await uploadTask.ref.getDownloadURL();
+          imageUrl = await storageRef.getDownloadURL();
         } catch (e) {
           debugPrint('Image upload failed: $e');
           // If Firebase Storage fails, encode as base64 data URI as fallback

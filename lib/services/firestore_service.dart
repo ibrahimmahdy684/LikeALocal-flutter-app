@@ -203,11 +203,13 @@ class FirestoreService {
   Future<List<NotificationItem>> fetchNotifications(String userId) async {
     final snapshot = await _notifications
         .where('userId', isEqualTo: userId)
-        .orderBy('timestamp', descending: true)
         .get();
-    return snapshot.docs
+    final items = snapshot.docs
         .map((doc) => NotificationItem.fromMap(doc.data(), doc.id))
         .toList();
+    // Sort client-side to avoid needing a composite Firestore index
+    items.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    return items;
   }
 
   Future<void> markNotificationRead(String notificationId) async {
@@ -616,11 +618,13 @@ class FirestoreService {
     final snap = await _db
         .collection(FirestoreCollections.reminders)
         .where('userId', isEqualTo: userId)
-        .orderBy('reminderTime')
         .get();
-    return snap.docs
+    final items = snap.docs
         .map((d) => PlaceReminder.fromMap(d.data(), d.id))
         .toList();
+    // Sort client-side to avoid needing a composite Firestore index
+    items.sort((a, b) => a.reminderTime.compareTo(b.reminderTime));
+    return items;
   }
 
   Future<void> completeReminder(String reminderId) async {
