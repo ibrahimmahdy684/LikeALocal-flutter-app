@@ -83,6 +83,17 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
       userId: auth.currentUser!.id,
       rating: rating,
     );
+
+    final existingReview = await reviewProvider.getUserReview(
+      widget.place.id,
+      auth.currentUser!.id,
+    );
+    if (existingReview != null && existingReview.rating != rating) {
+      existingReview.rating = rating;
+      existingReview.updatedAt = DateTime.now();
+      await reviewProvider.updateReview(existingReview);
+    }
+
     setState(() => _userRating = rating);
     await _refreshPlaceRating();
     if (mounted) {
@@ -112,7 +123,10 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (_) => ReviewFormDialog(placeId: widget.place.id),
+      builder: (_) => ReviewFormDialog(
+        placeId: widget.place.id,
+        initialRating: _userRating,
+      ),
     );
     if (result == null) return;
 

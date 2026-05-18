@@ -393,16 +393,26 @@ class FirestoreService {
     required String text,
   }) async {
     final chatId = _guideChatId(userId, guideId);
-    await _db
-        .collection(FirestoreCollections.guideChats)
-        .doc(chatId)
-        .collection(FirestoreCollections.messages)
-        .add({
+    final chatDoc = _db.collection(FirestoreCollections.guideChats).doc(chatId);
+
+    await chatDoc.set({
+      'participants': [userId, guideId]..sort(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await chatDoc.collection(FirestoreCollections.messages).add({
       'senderId': userId,
       'senderName': senderName,
       'text': text,
       'createdAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  /// Check if a user has blocked another user.
+  Future<bool> hasBlockedUser(String userId, String potentiallyBlockedId) async {
+    final doc = await _users.doc(userId).get();
+    final blocked = List<String>.from(doc.data()?['blockedUserIds'] ?? []);
+    return blocked.contains(potentiallyBlockedId);
   }
 
   // ── Admin methods ──

@@ -7,11 +7,13 @@ import 'rating_widget.dart';
 class ReviewFormDialog extends StatefulWidget {
   final Review? existingReview;
   final String placeId;
+  final double? initialRating;
 
   const ReviewFormDialog({
     super.key,
     this.existingReview,
     required this.placeId,
+    this.initialRating,
   });
 
   @override
@@ -26,7 +28,7 @@ class _ReviewFormDialogState extends State<ReviewFormDialog> {
   void initState() {
     super.initState();
     _textController = TextEditingController(text: widget.existingReview?.text ?? '');
-    _rating = widget.existingReview?.rating ?? 0;
+    _rating = widget.existingReview?.rating ?? widget.initialRating ?? 0;
   }
 
   @override
