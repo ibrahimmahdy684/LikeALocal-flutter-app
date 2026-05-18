@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 
 import '../models/place.dart';
@@ -14,6 +13,7 @@ import '../theme/app_colors.dart';
 import '../widgets/rating_widget.dart';
 import '../widgets/reminder_dialog.dart';
 import '../widgets/review_card.dart';
+import '../widgets/place_image.dart';
 import '../widgets/review_form_dialog.dart';
 import '../widgets/save_place_button.dart';
 import '../widgets/upgrade_pro_dialog.dart';
@@ -313,10 +313,7 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
             ],
             flexibleSpace: FlexibleSpaceBar(
               background: place.image.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: place.image,
-                      fit: BoxFit.cover,
-                    )
+                  ? PlaceImage(imageUrl: place.image, fit: BoxFit.cover)
                   : Container(color: AppColors.secondary),
             ),
           ),
