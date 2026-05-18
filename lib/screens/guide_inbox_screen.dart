@@ -139,8 +139,8 @@ class _GuideInboxScreenState extends State<GuideInboxScreen> {
               style: TextStyle(color: AppColors.muted, fontSize: 13),
             ),
             trailing: Icon(Icons.chevron_right, color: AppColors.muted),
-            onTap: () {
-              Navigator.push(
+            onTap: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (_) => GuideChatScreen(
@@ -154,6 +154,7 @@ class _GuideInboxScreenState extends State<GuideInboxScreen> {
                   ),
                 ),
               );
+              _load();
             },
           ),
         );
@@ -185,7 +186,9 @@ class _GuideInboxScreenState extends State<GuideInboxScreen> {
         .where((doc) => doc.id != currentUserId)
         .where((doc) {
       final privacy = doc.data()['chatPrivacy'] ?? 'everyone';
-      return privacy != 'nobody';
+      if (privacy == 'nobody') return false;
+      final blocked = List<String>.from(doc.data()['blockedUserIds'] ?? []);
+      return !blocked.contains(currentUserId);
     }).map((doc) =>
             (id: doc.id, name: (doc.data()['name'] ?? 'User') as String));
 
@@ -249,9 +252,9 @@ class _GuideInboxScreenState extends State<GuideInboxScreen> {
                           ),
                         ),
                         title: Text(user.name),
-                        onTap: () {
+                        onTap: () async {
                           Navigator.pop(ctx);
-                          Navigator.push(
+                          await Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => GuideChatScreen(
@@ -265,6 +268,7 @@ class _GuideInboxScreenState extends State<GuideInboxScreen> {
                               ),
                             ),
                           );
+                          _load();
                         },
                       );
                     },
@@ -278,16 +282,19 @@ class _GuideInboxScreenState extends State<GuideInboxScreen> {
   }
 
   Future<List<_ChatPreview>> _loadConversations(String userId) async {
-    final chats =
-        await FirebaseFirestore.instance.collection('guideChats').get();
+    final chats = await FirebaseFirestore.instance
+        .collection('guideChats')
+        .where('participants', arrayContains: userId)
+        .orderBy('updatedAt', descending: true)
+        .get();
 
     final conversations = <_ChatPreview>[];
     for (final doc in chats.docs) {
-      final chatId = doc.id;
-      if (!chatId.contains(userId)) continue;
-
-      final ids = chatId.split('_');
-      final otherId = ids.firstWhere((id) => id != userId, orElse: () => '');
+      final participants = List<String>.from(doc.data()['participants'] ?? []);
+      final otherId = participants.firstWhere(
+        (id) => id != userId,
+        orElse: () => '',
+      );
       if (otherId.isEmpty) continue;
 
       final messagesSnap = await doc.reference

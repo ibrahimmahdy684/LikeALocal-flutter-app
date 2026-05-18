@@ -57,6 +57,31 @@ class _GuideChatScreenState extends State<GuideChatScreen> {
       return;
     }
 
+    final isBlocked = await _firestore.hasBlockedUser(
+      widget.guide.id,
+      auth.currentUser!.id,
+    );
+    if (isBlocked) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Cannot Send Message'),
+            content: const Text(
+              'You cannot send messages to this user because they have blocked you.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
+
     final recipientPrivacy = await _firestore.getChatPrivacy(widget.guide.id);
     if (recipientPrivacy == ChatPrivacy.nobody) {
       if (mounted) {
