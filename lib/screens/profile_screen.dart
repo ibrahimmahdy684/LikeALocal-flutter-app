@@ -10,6 +10,7 @@ import '../providers/chat_provider.dart';
 import '../providers/places_provider.dart';
 import '../providers/notifications_provider.dart';
 import '../models/user.dart';
+import '../widgets/place_image.dart';
 import 'admin_screen.dart';
 import 'auth_screen.dart';
 import 'add_place_screen.dart';
@@ -409,14 +410,10 @@ class ProfileScreen extends StatelessWidget {
                 children: [
                   Expanded(
                     flex: 3,
-                    child: CachedNetworkImage(
+                    child: PlaceImage(
                       imageUrl: place.image,
                       fit: BoxFit.cover,
                       width: double.infinity,
-                      placeholder: (ctx, url) =>
-                          Container(color: AppColors.secondary),
-                      errorWidget: (ctx, url, err) =>
-                          Container(color: AppColors.secondary),
                     ),
                   ),
                   Expanded(
@@ -484,7 +481,7 @@ class ProfileScreen extends StatelessWidget {
               leading: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: place.image.isNotEmpty
-                    ? CachedNetworkImage(
+                    ? PlaceImage(
                         imageUrl: place.image,
                         width: 48,
                         height: 48,

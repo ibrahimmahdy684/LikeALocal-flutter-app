@@ -5,6 +5,7 @@ import '../theme/app_colors.dart';
 import '../models/place.dart';
 import '../providers/places_provider.dart';
 import '../providers/cities_provider.dart';
+import '../widgets/place_image.dart';
 import '../widgets/save_place_button.dart';
 import '../models/local_guide.dart';
 import '../services/firestore_service.dart';
@@ -437,15 +438,9 @@ class _CityDetailScreenState extends State<CityDetailScreen> {
           // Place image
           SizedBox(
             width: 112,
-            child: CachedNetworkImage(
+            child: PlaceImage(
               imageUrl: place.image,
               fit: BoxFit.cover,
-              placeholder: (ctx, url) =>
-                  Container(color: AppColors.secondary),
-              errorWidget: (ctx, url, err) => Container(
-                color: AppColors.secondary,
-                child: Icon(Icons.image, color: AppColors.muted),
-              ),
             ),
           ),
           // Content

@@ -1,9 +1,9 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 
@@ -120,26 +120,9 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         await citiesProvider.incrementCityPlaceCount(cityName);
       }
 
-      // Upload image to Firebase Storage if selected
       String imageUrl = '';
       if (_pickedImageBytes != null) {
-        try {
-          final fileName = '${DateTime.now().millisecondsSinceEpoch}_${authProvider.currentUser!.id}.jpg';
-          final storageRef = FirebaseStorage.instance.ref('places/$fileName');
-          await storageRef.putData(
-            _pickedImageBytes!,
-            SettableMetadata(contentType: 'image/jpeg'),
-          );
-          imageUrl = await storageRef.getDownloadURL();
-        } catch (e) {
-          debugPrint('Image upload failed: $e');
-          // Don't store base64 in Firestore — just skip the image
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Image upload failed. Place will be saved without photo.')),
-            );
-          }
-        }
+        imageUrl = 'data:image/jpeg;base64,${base64Encode(_pickedImageBytes!)}';
       }
 
       final newPlace = Place(

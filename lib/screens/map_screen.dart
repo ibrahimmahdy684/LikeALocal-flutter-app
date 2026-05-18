@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-
 import '../config/app_config.dart';
 import '../models/place.dart';
 import '../providers/auth_provider.dart';
@@ -13,6 +11,7 @@ import '../providers/places_provider.dart';
 import '../services/location_service.dart';
 import '../services/maps_launcher_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/place_image.dart';
 import '../widgets/save_place_button.dart';
 import '../widgets/upgrade_pro_dialog.dart';
 import 'place_detail_screen.dart';
@@ -359,7 +358,7 @@ class _PlaceMapPopup extends StatelessWidget {
           if (place.image.isNotEmpty)
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: CachedNetworkImage(
+              child: PlaceImage(
                 imageUrl: place.image,
                 height: 120,
                 width: double.infinity,
