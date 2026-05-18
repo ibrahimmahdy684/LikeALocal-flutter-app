@@ -316,6 +316,27 @@ class FirestoreService {
     });
   }
 
+  Future<void> createHiddenGemNotification({
+    required String userId,
+    required String placeName,
+    required String category,
+    required double distance,
+    required double gemScore,
+  }) async {
+    final distanceStr = distance >= 1
+        ? '${distance.toStringAsFixed(1)}km'
+        : '${(distance * 1000).round()}m';
+    await _notifications.add({
+      'userId': userId,
+      'type': NotificationType.hiddenGem.name,
+      'title': 'Hidden gem nearby: $placeName!',
+      'message':
+          '$placeName ($category) is $distanceStr away — gem score ${gemScore.toStringAsFixed(1)}. Matches your preferences!',
+      'timestamp': FieldValue.serverTimestamp(),
+      'isRead': false,
+    });
+  }
+
   Future<void> createMessageNotification({
     required String recipientId,
     required String senderName,

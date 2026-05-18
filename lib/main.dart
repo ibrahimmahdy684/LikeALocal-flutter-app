@@ -125,6 +125,8 @@ class _AppStartupState extends State<AppStartup> {
     _nearbyService.startMonitoring(
       userId: auth.currentUser!.id,
       places: allPlaces,
+      preferredCategories: auth.currentUser!.preferredCategories,
+      budgetLevel: auth.currentUser!.budgetLevel,
       onNearbyPlace: (title, message) {
         notifications.loadForUser(auth.currentUser!.id);
         if (mounted) {
