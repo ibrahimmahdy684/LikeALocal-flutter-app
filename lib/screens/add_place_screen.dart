@@ -126,10 +126,12 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         try {
           final fileName = '${DateTime.now().millisecondsSinceEpoch}_${authProvider.currentUser!.id}.jpg';
           final storageRef = FirebaseStorage.instance.ref('places/$fileName');
-          await storageRef.putData(
+          await storageRef
+              .putData(
             _pickedImageBytes!,
             SettableMetadata(contentType: 'image/jpeg'),
-          );
+          )
+              .timeout(const Duration(seconds: 20));
           imageUrl = await storageRef.getDownloadURL();
         } catch (e) {
           debugPrint('Image upload failed: $e');
@@ -398,6 +400,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                       urlTemplate:
                           'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.likealocal.app',
+                      errorTileCallback: (_, __, ___) {},
                     ),
                     if (_selectedLocation != null)
                       MarkerLayer(

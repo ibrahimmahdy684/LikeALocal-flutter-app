@@ -34,7 +34,21 @@ service cloud.firestore {
       allow create: if (!databaseSeeded() && request.resource.data.isApproved == true)
         || (request.auth != null
             && request.resource.data.contributorId == request.auth.uid);
-      allow update, delete: if request.auth != null
+      function isRatingUpdate() {
+        return request.auth != null
+          && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+            'rating',
+            'ratingCount',
+            'ratingTotal',
+          ])
+          && request.resource.data.rating is number
+          && request.resource.data.ratingCount is int
+          && request.resource.data.ratingTotal is number;
+      }
+
+      allow update: if request.auth != null
+        && (request.auth.uid == resource.data.contributorId || isAdmin() || isRatingUpdate());
+      allow delete: if request.auth != null
         && (request.auth.uid == resource.data.contributorId || isAdmin());
 
       match /comments/{commentId} {
@@ -66,7 +80,7 @@ service cloud.firestore {
       allow read, update, delete: if request.auth != null
         && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null
-        && request.resource.data.userId == request.auth.uid;
+        && (request.resource.data.userId == request.auth.uid || isAdmin());
     }
   }
 }

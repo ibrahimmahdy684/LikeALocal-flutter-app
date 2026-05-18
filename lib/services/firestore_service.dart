@@ -455,6 +455,20 @@ class FirestoreService {
     await _places.doc(placeId).update({'isApproved': true});
   }
 
+  Future<void> createApprovalNotification({
+    required String userId,
+    required String placeName,
+  }) async {
+    await _notifications.add({
+      'userId': userId,
+      'type': NotificationType.approval.name,
+      'title': 'Place approved',
+      'message': 'Your place "$placeName" is now live.',
+      'timestamp': FieldValue.serverTimestamp(),
+      'isRead': false,
+    });
+  }
+
   /// Delete a place.
   Future<void> deletePlace(String placeId) async {
     await _places.doc(placeId).delete();

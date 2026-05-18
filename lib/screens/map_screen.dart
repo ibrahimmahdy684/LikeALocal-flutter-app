@@ -160,6 +160,7 @@ class _MapScreenState extends State<MapScreen> {
                     urlTemplate:
                         'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.likealocal.app',
+                    errorTileCallback: (_, __, ___) {},
                   ),
                   if (placesProvider.userLocation != null)
                     MarkerLayer(

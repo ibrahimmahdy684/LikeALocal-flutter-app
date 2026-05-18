@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:provider/provider.dart';
 
 import '../models/place.dart';
 import '../models/user.dart';
-import '../providers/auth_provider.dart';
 import '../services/firestore_service.dart';
 import '../theme/app_colors.dart';
 
@@ -74,6 +72,10 @@ class _AdminScreenState extends State<AdminScreen>
   Future<void> _approvePlace(Place place) async {
     try {
       await _firestore.approvePlace(place.id);
+      await _firestore.createApprovalNotification(
+        userId: place.contributorId,
+        placeName: place.title,
+      );
       setState(() {
         _pendingPlaces.removeWhere((p) => p.id == place.id);
         final idx = _allPlaces.indexWhere((p) => p.id == place.id);
@@ -308,6 +310,7 @@ class _AdminScreenState extends State<AdminScreen>
         TileLayer(
           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.likealocal.app',
+          errorTileCallback: (_, __, ___) {},
         ),
         MarkerLayer(
           markers: placesWithCoords.map((place) {

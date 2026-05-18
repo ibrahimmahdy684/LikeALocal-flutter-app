@@ -279,6 +279,23 @@ class _PlaceDetailScreenState extends State<PlaceDetailScreen> {
           SliverAppBar(
             expandedHeight: 220,
             pinned: true,
+            automaticallyImplyLeading: false,
+            leading: Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: Material(
+                color: Colors.black54,
+                shape: const CircleBorder(),
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                  tooltip: 'Back',
+                ),
+              ),
+            ),
             actions: [
               IconButton(
                 icon: Icon(
