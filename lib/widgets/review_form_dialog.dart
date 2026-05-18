@@ -22,13 +22,15 @@ class ReviewFormDialog extends StatefulWidget {
 
 class _ReviewFormDialogState extends State<ReviewFormDialog> {
   late TextEditingController _textController;
-  double _rating = 0;
+  late double _rating;
+  late bool _ratingLocked;
 
   @override
   void initState() {
     super.initState();
     _textController = TextEditingController(text: widget.existingReview?.text ?? '');
     _rating = widget.existingReview?.rating ?? widget.initialRating ?? 0;
+    _ratingLocked = widget.initialRating != null && widget.initialRating! > 0;
   }
 
   @override
@@ -49,15 +51,30 @@ class _ReviewFormDialogState extends State<ReviewFormDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Your rating:', style: TextStyle(fontWeight: FontWeight.w500)),
+            Text(
+              _ratingLocked ? 'Your rating:' : 'Select your rating:',
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
             const SizedBox(height: 8),
             Center(
-              child: RatingBar(
-                initialRating: _rating,
-                onRatingUpdate: (val) => _rating = val,
-                size: 36,
-              ),
+              child: _ratingLocked
+                  ? RatingWidget(rating: _rating, size: 36)
+                  : RatingBar(
+                      initialRating: _rating,
+                      onRatingUpdate: (val) => _rating = val,
+                      size: 36,
+                    ),
             ),
+            if (_ratingLocked)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Center(
+                  child: Text(
+                    'Change your rating using the stars above',
+                    style: TextStyle(fontSize: 11, color: AppColors.muted),
+                  ),
+                ),
+              ),
             const SizedBox(height: 16),
             TextField(
               controller: _textController,

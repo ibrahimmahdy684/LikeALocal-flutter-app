@@ -282,19 +282,39 @@ class _GuideInboxScreenState extends State<GuideInboxScreen> {
   }
 
   Future<List<_ChatPreview>> _loadConversations(String userId) async {
-    final chats = await FirebaseFirestore.instance
-        .collection('guideChats')
+    final db = FirebaseFirestore.instance;
+    final chatCollection = db.collection('guideChats');
+
+    // Query chats with participants field (new format)
+    final indexedChats = await chatCollection
         .where('participants', arrayContains: userId)
-        .orderBy('updatedAt', descending: true)
         .get();
 
+    // Also scan for legacy chats that have the userId in the doc ID
+    // but may lack the participants field
+    final allChats = await chatCollection.get();
+    final legacyDocs = allChats.docs.where((doc) {
+      if (indexedChats.docs.any((d) => d.id == doc.id)) return false;
+      return doc.id.contains(userId);
+    });
+
+    final allDocs = [...indexedChats.docs, ...legacyDocs];
+
     final conversations = <_ChatPreview>[];
-    for (final doc in chats.docs) {
-      final participants = List<String>.from(doc.data()['participants'] ?? []);
-      final otherId = participants.firstWhere(
-        (id) => id != userId,
-        orElse: () => '',
-      );
+    for (final doc in allDocs) {
+      final data = doc.data();
+      String otherId;
+
+      final participants = List<String>.from(data['participants'] ?? []);
+      if (participants.isNotEmpty) {
+        otherId = participants.firstWhere(
+          (id) => id != userId,
+          orElse: () => '',
+        );
+      } else {
+        final ids = doc.id.split('_');
+        otherId = ids.firstWhere((id) => id != userId, orElse: () => '');
+      }
       if (otherId.isEmpty) continue;
 
       final messagesSnap = await doc.reference
@@ -306,19 +326,27 @@ class _GuideInboxScreenState extends State<GuideInboxScreen> {
       if (messagesSnap.docs.isEmpty) continue;
 
       final lastMsg = messagesSnap.docs.first.data();
+      final timestamp = lastMsg['createdAt'] as Timestamp?;
 
-      final otherDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(otherId)
-          .get();
+      final otherDoc = await db.collection('users').doc(otherId).get();
       final otherName = otherDoc.data()?['name'] ?? 'User';
 
       conversations.add(_ChatPreview(
         otherId: otherId,
         otherName: otherName,
         lastMessage: lastMsg['text'] ?? '',
+        lastMessageTime: timestamp,
       ));
     }
+
+    conversations.sort((a, b) {
+      final aTime = a.lastMessageTime;
+      final bTime = b.lastMessageTime;
+      if (aTime == null && bTime == null) return 0;
+      if (aTime == null) return 1;
+      if (bTime == null) return -1;
+      return bTime.compareTo(aTime);
+    });
 
     return conversations;
   }
@@ -328,10 +356,12 @@ class _ChatPreview {
   final String otherId;
   final String otherName;
   final String lastMessage;
+  final Timestamp? lastMessageTime;
 
   _ChatPreview({
     required this.otherId,
     required this.otherName,
     required this.lastMessage,
+    this.lastMessageTime,
   });
 }
