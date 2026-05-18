@@ -8,7 +8,6 @@ enum NotificationType {
   message,
   approval,
   reminder,
-  hiddenGem,
 }
 
 class NotificationItem {

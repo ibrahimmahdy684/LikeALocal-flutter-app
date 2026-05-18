@@ -245,8 +245,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return Icons.check_circle;
       case NotificationType.reminder:
         return Icons.access_time;
-      case NotificationType.hiddenGem:
-        return Icons.diamond;
     }
   }
 

@@ -14,8 +14,7 @@ class NearbyNotificationService {
   Timer? _timer;
   final Set<String> _notifiedPlaceIds = {};
 
-  static const double _hiddenGemRadiusKm = 10.0;
-  static const double _hiddenGemMinScore = 3.0;
+  static const double _recommendRadiusKm = 10.0;
 
   void startMonitoring({
     required String userId,
@@ -56,8 +55,6 @@ class NearbyNotificationService {
     final position = await _locationService.getCurrentPosition();
     if (position == null) return;
 
-    final radiusKm = await _cache.getNearbyRadius();
-
     for (final place in places) {
       if (place.latitude == null || place.longitude == null) continue;
       if (_notifiedPlaceIds.contains(place.id)) continue;
@@ -67,25 +64,8 @@ class NearbyNotificationService {
         LatLng(place.latitude!, place.longitude!),
       );
 
-      // Standard nearby notification
-      if (distance <= radiusKm) {
-        _notifiedPlaceIds.add(place.id);
-        onNearbyPlace(
-          'You\'re near ${place.title}!',
-          '${place.title} in ${place.cityName} is just ${(distance * 1000).round()}m away. Check it out!',
-        );
-
-        await _firestoreService.createNearbyNotification(
-          userId: userId,
-          placeName: place.title,
-          distance: distance,
-        );
-        continue;
-      }
-
-      // Hidden gem notification within 10km that matches preferences
-      if (distance <= _hiddenGemRadiusKm &&
-          place.hiddenGemScore >= _hiddenGemMinScore &&
+      // Recommend places within 10km that match user preferences
+      if (distance <= _recommendRadiusKm &&
           _matchesPreferences(place, preferredCategories, budgetLevel)) {
         _notifiedPlaceIds.add(place.id);
 
@@ -94,16 +74,14 @@ class NearbyNotificationService {
             : '${(distance * 1000).round()}m';
 
         onNearbyPlace(
-          'Hidden gem nearby: ${place.title}!',
-          '${place.title} (${place.category}) is a hidden gem $distanceStr away — matches your preferences!',
+          'Recommended: ${place.title}',
+          '${place.title} (${place.category}) is $distanceStr away and matches your preferences!',
         );
 
-        await _firestoreService.createHiddenGemNotification(
+        await _firestoreService.createNearbyNotification(
           userId: userId,
           placeName: place.title,
-          category: place.category,
           distance: distance,
-          gemScore: place.hiddenGemScore,
         );
       }
     }
